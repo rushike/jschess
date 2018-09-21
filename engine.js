@@ -1,4 +1,4 @@
-
+const version = "0.0.1";
 
 const __PIECES_STD = [];
 __PIECES_STD["wK"] = 0; __PIECES_STD["wQ"] = 1; __PIECES_STD["wR"] = 2; __PIECES_STD["wB"] = 3; __PIECES_STD["wN"] = 4; __PIECES_STD["wP"] = 5; __PIECES_STD["X"] = 6;
