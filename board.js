@@ -1,10 +1,10 @@
 
 var sho = []
 
-var drawer;
+var drawer = null;
 
 var WIDTH = 800
-
+var COLOR = ["#F8ECEC", "#FFA500"];
 var HEIGHT = 800
 
 function set_height(y){
@@ -19,6 +19,13 @@ function set_dimen(i, j){
     WIDTH = i;
     HEIGHT = j;
 }
+
+function set_color(black, white){
+    COLOR = [white, black];
+    if(!drawer) drawer = new Drawer();
+    drawer.init_feature();
+}
+
 
 function preload(){
     var i = 0, j = 0 , k = 0;
@@ -37,7 +44,7 @@ function preload(){
 
 function setup(){
     createCanvas(900, 800);
-    drawer = new Drawer();
+    if(!drawer) drawer = new Drawer()
     drawer.draw()
 }
 
@@ -51,6 +58,7 @@ function draw(){
 function mouseMoved(){
     // console.log("mouseMoved : Event Triggered. ... .. . .... ..");
     // console.log("Board.ondrag : " + board.ondrag);
+    // drawer.hold(mouseX, mouseY);
 }
 
 function mousePressed(){
@@ -83,6 +91,9 @@ function touchMoved(){
 function touchEnd(){
     // console.log("touchEnd : Event Triggered. ... .. . .... ..");
     // console.log("Board.ondrag : " + board.ondrag);
+    
+    drawer.clicked(mouseX, mouseY)
+    drawer.draw()
 }
 
 // function mouseDragged(){
@@ -90,6 +101,9 @@ function touchEnd(){
 // }
 
 function mouseReleased(){
+    
+    drawer.clicked(mouseX, mouseY)
+    drawer.draw()
     // console.log("mouseReleased : Event Triggered. ... .. . .... ..");
     // console.log("Board.ondrag : " + board.ondrag);
 }
@@ -99,15 +113,22 @@ function mouseReleased(){
 class Drawer{
     constructor(){
         this.board = new Board();
-        this.board_dimen = [800, 800]; // width;  height
+        this.board_dimen = [WIDTH, HEIGHT]; // width;  height
         this.square_dimen = [this.board_dimen[0] >> 3, this.board_dimen[1] >> 3]
-        this.color = ["#F8ECEC", "#FFA500"] //0 -- White;  1 -- Black
+        this.color = COLOR //0 -- White;  1 -- Black
         this.highlight_color = "#FFF787" // Highlight color, It will be a circular spot in middle of square
         this.outline_squares = [] // It stores square(with x & y co - ordinates) to be highlight
         this.outline = 2 // It stores outline width in pixels
         this.c_sq_n = {x : 0, y : 0} //It will store the current square no clicked , in x, y 2D form 
+        this.hold_flag = false;
     }
 
+    init_feature(){ // Will not reint the board
+        this.board_dimen = [WIDTH, HEIGHT]; // width;  height
+        this.square_dimen = [this.board_dimen[0] >> 3, this.board_dimen[1] >> 3]
+        this.color = COLOR //0 -- White;  1 -- Black
+        this.highlight_color = "#FFF787" // Highlight color, It will be a circular spot in middle of square
+    }
     set_c_sq_n(x, y){
         this.c_sq_n.x = x; this.c_sq_n.y = y;
     }
@@ -153,12 +174,20 @@ class Drawer{
      * @param {number} j 
      */
     clicked(i, j){
-        var c = drawer.board_index(i, j)
+        var c = this.board_index(i, j)
         i = c.x; j = c.y
         this.board.move(i, j)
+        this.hold_flag = !this.hold_flag;
         this.board.valid_moves(i, j)
     }
 
+    // hold(i, j){
+    //     if(this){    
+    //         var c = this.board_index(i, j)
+    //         var piece_id = this.board.get_piece(c.x, c.y);
+    //         image(sho[piece_id], i, j, this.square_dimen[0]- 30, this.square_dimen[1] - 30);
+    //     }
+    // }
 
     /**Drawer*/
 
@@ -173,8 +202,8 @@ class Drawer{
 
         //Draw the square
         push();
-        if(sq.sq_color() == 0) fill(248, 236, 236); //White
-        else fill(255, 165, 0);                     //Black
+        if(sq.sq_color() == 0) fill(this.color[0])//fill(248, 236, 236); //White
+        else fill(this.color[1]);//fill(255, 165, 0);                     //Black
         if(this.outline_squares.includes({x: sq.sq.x, y: sq.sq.y})) this.outline();
         else rect(sq_pos.x, sq_pos.y, this.square_dimen[0], this.square_dimen[1]);
         pop();

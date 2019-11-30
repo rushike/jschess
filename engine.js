@@ -141,6 +141,9 @@ const __DIR_OFFFSET = {
     DEFAULT : [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
 }
 
+const __DIR_OFFFSET_ARR = [__DIR_OFFFSET.KING, __DIR_OFFFSET.QUEEN, __DIR_OFFFSET.ROOK, __DIR_OFFFSET.BISHOP, __DIR_OFFFSET.HORSE, __DIR_OFFFSET.PAWN, __DIR_OFFFSET.DEFAULT, [], 
+                           __DIR_OFFFSET.KING, __DIR_OFFFSET.QUEEN, __DIR_OFFFSET.ROOK, __DIR_OFFFSET.BISHOP, __DIR_OFFFSET.HORSE, __DIR_OFFFSET.PAWN, __DIR_OFFFSET.DEFAULT, []]
+
 const __P_RANK = [0x1, 0x6]
 
 const __DIRECTION_ARR = [__DIRECTION.KING, __DIRECTION.QUEEN, __DIRECTION.ROOK, __DIRECTION.BISHOP, __DIRECTION.HORSE, __DIRECTION.PAWN, __DIRECTION.DEFAULT, [],
@@ -291,6 +294,14 @@ class Board{
         }
     }
 
+    get_piece(j, i){
+        return this.board[i][j].piece_id;
+    }
+
+    get_square(j, i){
+        return this.board[i][j];
+    }
+
     clear_flag(array = null){
         if(array){
             this.v_moves.forEach(c =>{
@@ -415,10 +426,16 @@ class PRE_ENGINE{
 
 
     
-    set_square(n_sq_n, piece){
-        sq_n &= 0x3f; 
-        this.EB[Square.no(i, j)] = 0; //(this.EB[sq_n] & 0xffffff40) | sq_n;
-        return this.EB[Square.no(i, j)];
+    set_square(n_sq_n){
+        n_sq_n &= 0x7f; 
+        var piece_id = this.piece(n_sq_n)
+        var pr_rank  = piece_id < 5 ? 0: 1;
+        var _2ndindex = (this.EB[n_sq_n] >> 4 & 0x7) 
+        var inde = (__BORANK[this.pl_type(n_sq_n)][pr_rank] << 4) + ( _2ndindex + 8) ;
+        console.log("2index : " + _2ndindex);
+        this.EB[inde] = n_sq_n; //(this.EB[sq_n] & 0xffffff40) | sq_n;
+        console.log("Updated this the " + piece_id + " of pl_type : " + this.pl_type(n_sq_n) + " to index : " + inde +  " in square part to n_sq_n " + n_sq_n );
+        return this.EB[inde];
     }
     
 
@@ -431,6 +448,7 @@ class PRE_ENGINE{
         var pie_ = (piece_id & 0xf);
         sq_n &= 0x7F; 
         this.EB[sq_n] |= pie_; //^ (this.set_square(sq_n) & 0x3c0);
+        
         return this.EB[sq_n]; 
     }
 
@@ -504,55 +522,78 @@ class PRE_ENGINE{
      */
 
     move( n_sq_n){
+        console.log("n_sq_n : " + n_sq_n + " c_sq_n : " + this.c_sq_n + " turn : " + this.turn + "  v_moves : " + this.v_moves)
         if(this.pl_type(n_sq_n) == this.pl_type(this.c_sq_n)) return;
         if(this.pl_type(this.c_sq_n) == this.invert(this.turn, 1)) return;
         if(!this.c_sq_n) return;
         if(!this.v_moves.includes(n_sq_n)) return;
-
+        console.log("v_moves : " + this.v_moves)
         this.EB[n_sq_n] = this.EB[this.c_sq_n];
+        this.set_square(n_sq_n)
         this.set_piece(this.c_sq_n, 6);
         this.turn = (!this.turn & 1);
         this.count++;
     }
 
-    valid_moves(sq_n, attacked = true){
+    valid_moves(sq_n, attacked = true, directions = null){
         if(!this.piece_area(sq_n)) return [];
-        this.c_sq_n = sq_n
+        if(attacked) this.c_sq_n = sq_n
         var moves = [];
-        
+        console.log("valid _ sq_n : " + sq_n)
         var piece = this.piece(sq_n);
          if(this.pl_type(sq_n) != this.turn) return [];
         if(piece == 0){ //KING
-            moves = this.king_moves(sq_n);
+            if(!directions) moves = this.king_moves(sq_n);
+            else moves = this.king_moves(sq_n, directions)
         }
         else if(piece == 1){ //QUEEN
-            moves = this.queen_moves(sq_n);
+            if(!directions) moves = this.queen_moves(sq_n);
+            else moves = this.queen_moves(sq_n, directions);
         }
         else if(piece == 2){ //ROOK
-            moves = this.rook_moves(sq_n);
+            if(!directions) moves = this.rook_moves(sq_n);
+            else moves = this.rook_moves(sq_n, directions);
         }
         else if(piece == 3){ //BISHOP
-            moves = this.bishop_moves(sq_n);
+            if(!directions) moves = this.bishop_moves(sq_n);
+            else moves = this.bishop_moves(sq_n, directions);
         }
         else if(piece == 4){ //HORSE
-            moves = this.horse_moves(sq_n);
+            if(!directions) moves = this.horse_moves(sq_n);
+            else moves = this.horse_moves(sq_n, directions);
         }
         else if(piece == 5){ //PAWN
-            moves = this.pawn_moves(sq_n);
+            if(!directions) moves = this.pawn_moves(sq_n);
+            else moves = this.pawn_moves(sq_n, directions);
         }else{
             //raise error
         }
-        this.v_moves = moves
-        var k_sq_n; 
-        return moves
+        // console.log("moves : " + moves)
+        if(attacked) this.v_moves = moves
+        // console.log("turn ............ " + this.turn);
+        if(attacked) {
+            var k_locator = __BORANK[this.turn][0]  * 16 + (8 + 4);// King square stores in square part of x88ru board
+            console.log("k locator : " + k_locator);
+            var k_sq_n = this.EB[k_locator];
+            console.log("King Square : " + k_sq_n + ", 2D :  " );console.log(Square.x88_v40sqno(k_sq_n)); 
+            var attack = this.if_attacked(k_sq_n);
+            console.log("attackers : " + attack.attackers);
+
+            if(this.piece(sq_n) == 0) return minus(moves , attack.moves)
+            if(attack.moves.length != 0) return intersect(attack.moves, moves);
+        }
+        // console.log("moves : " + moves)
+        // console.log("turn .. " + this.turn);
+        // console.log("valid c_sq_n : " + this.c_sq_n );
+        return moves;
     }
 
-    king_moves(sq_n){
+    king_moves(sq_n, directions = __DIR_OFFFSET.KING){
         if(!this.piece_area(sq_n)) return []
         var moves = []
         var pl_type = this.pl_type(sq_n)
         var a_sq_n = 0, b_sq_n = 0, can;
-        __DIR_OFFFSET.KING.forEach(o => {
+        directions.forEach(o => {
             a_sq_n = sq_n
             for(var i = 0; i < __RANGE.KING; i++){
                 a_sq_n = a_sq_n + o
@@ -564,12 +605,14 @@ class PRE_ENGINE{
         return moves
     }
      
-    queen_moves(sq_n){
+    queen_moves(sq_n, directions = __DIR_OFFFSET.QUEEN){
         if(!this.piece_area(sq_n)) return []
         var moves = []
         var pl_type = this.pl_type(sq_n)
         var a_sq_n = 0, b_sq_n = 0, can;
-        __DIR_OFFFSET.QUEEN.forEach(o => {
+
+        directions.forEach(o => {
+            console.log("MMMMMMMMMMMMMMMMMMMMMMM : Direction : " + o);
             a_sq_n = sq_n
             for(var i = 0; i < __RANGE.QUEEN; i++){
                 a_sq_n = a_sq_n + o
@@ -581,12 +624,12 @@ class PRE_ENGINE{
         return moves
     }
 
-    rook_moves(sq_n){
+    rook_moves(sq_n, directions = __DIR_OFFFSET.ROOK){
         if(!this.piece_area(sq_n)) return []
         var moves = []
         var pl_type = this.pl_type(sq_n);
         var a_sq_n = 0, b_sq_n = 0, can;
-        __DIR_OFFFSET.ROOK.forEach(o => {
+        directions.forEach(o => {
             a_sq_n = sq_n
             for(var i = 0; i < __RANGE.ROOK; i++){
                 a_sq_n = a_sq_n + o
@@ -597,12 +640,12 @@ class PRE_ENGINE{
         return moves
     }
 
-    bishop_moves(sq_n){
+    bishop_moves(sq_n , directions = __DIR_OFFFSET.BISHOP){
         if(!this.piece_area(sq_n)) return []
         var moves = []
         var pl_type = this.pl_type(sq_n)
         var a_sq_n = 0, b_sq_n = 0, can;
-        __DIR_OFFFSET.BISHOP.forEach(o => {
+        directions.forEach(o => {
             a_sq_n = sq_n
             for(var i = 0; i < __RANGE.BISHOP; i++){
                 a_sq_n = a_sq_n + o
@@ -618,13 +661,13 @@ class PRE_ENGINE{
      * @param {number} sq_n encoded x88ru format 
      * @returns {Array} moves array containing all possible moves
      */
-    horse_moves(sq_n){
+    horse_moves(sq_n, directions = __DIR_OFFFSET.HORSE){
         if(!this.piece_area(sq_n)) return []
         var moves = []
         var can, n_sq_n;
         var pl_type = this.pl_type(sq_n), n_sq_n = 0
-        for(var i = 0; i < __DIRECTION.HORSE.length; i++){
-            n_sq_n = sq_n + __HORSE_MOVES_OFFSET[i] // new square if horse moved in (2 * i + 1) direction
+        for(var i = 0; i < directions.length; i++){
+            n_sq_n = sq_n + directions[i] // new square if horse moved in (2 * i + 1) direction
             can = this.go_to_square_if_can(n_sq_n, pl_type, moves)
             if(!can) continue
         }
@@ -635,7 +678,7 @@ class PRE_ENGINE{
      * 
      * @param {number} sq_n 
      */
-    pawn_moves(sq_n){
+    pawn_moves(sq_n, directions = __DIR_OFFFSET.PAWN){
         if(!this.piece_area(sq_n)) return []
 
         var pl_type = this.pl_type(sq_n);
@@ -648,14 +691,19 @@ class PRE_ENGINE{
         
         var RANGE = this.rank(sq_n) == __P_RANK[this.turn] ? 2 : 1;
 
-        for(var l = 0; l < RANGE; l++){ 
-            for(var k = 0; k < __DIR_LENGTH.PAWN; k++) {
-                var o = __DIR_OFFFSET.PAWN[k];
+         
+        for(var k = 0; k < directions.length; k++) {
+            m_sq_n = sq_n;
+            for(var l = 0; l < RANGE; l++){
+                var o = directions[k];
                 n_sq_n = m_sq_n + offset * o
-                to_add = (l & 1 == 0 && this.pl_type(n_sq_n) == this.invert(this.turn, 1) || k & 1 == 1 ) && !(this.pl_type(n_sq_n) == this.invert(this.turn, 1) && k & 1 == 1 )
+                console.log("pawn moves ------- n_sq_n : " + this.pl_type(n_sq_n))
+                to_add = ((l == 0 && this.pl_type(n_sq_n) == this.invert(this.turn, 1) ) || k & 1 == 1) && !(this.pl_type(n_sq_n) == this.invert(this.turn, 1) && k & 1 == 1 )
+                if(!to_add) break;
                 can = this.go_to_square_if_can(n_sq_n, pl_type, moves, to_add )
+                m_sq_n += (16 * offset);
             }
-            m_sq_n += (16 * offset);
+            
         }
         
         return moves
@@ -689,19 +737,52 @@ class PRE_ENGINE{
      * @param {number} sq_n 
      */
     if_attacked(sq_n){
-        var opp_pl_type = this.invert(this.turn)
-        var moves = []
-        this.turn = this.invert(this.turn) //Inverting the turn, without changing move count
-        __BORANK[opp_pl_type].forEach(rank =>{
+        var opp_pl_type = this.invert(this.turn, 1), n_sq_n;
+        var moves = [], attackers = [], movesabs = []
+        console.log("opp_pl_type : " + opp_pl_type)
+        console.log("sq_n : " + sq_n)
+        this.turn = this.invert(this.turn, 1) //Inverting the turn, without changing move count
+        for(var i = 0; i < 2; i++){
+            var rank = __BORANK[opp_pl_type][i];
             for(var i = 8; i < 16; i++){
-                sq_n = this.EB[rank * 16 + i]
+                n_sq_n = this.EB[rank * 16 + i]
+                // console.log("n_ghghghgh_sqn ....... : " + n_sq_n)
                 if(!this.piece_area()) continue
-                Array.prototype.push.apply(moves, this.valid_moves(sq_n, false))
+                var direction = this._direction(n_sq_n, sq_n)
+                
+                moves = this.valid_moves(n_sq_n, false, [__DIR_OFFFSET_ARR[this.piece(n_sq_n, true)][direction >> 1]])
+                if(this.piece(n_sq_n) == 1){
+                    console.log("direction : " + direction)
+                    console.log("turn ??? ~~~ : " + this.turn);
+                    console.log("if atta  ?? n__sqn ....... : " + n_sq_n)
+                    console.log("if atta  ?? moves :  " + moves);
+                }
+                if(moves.includes(sq_n)) {
+                    // if(this.piece(n_sq_n) == 4){
+                    //     movesabs = [n_sq_n]
+                    //     break;
+                    // }
+                    attackers.push(n_sq_n);
+                    Array.prototype.push.apply(movesabs, moves);
+                    movesabs.push(n_sq_n)
+                } 
             }
-        });
-        this.turn = this.invert(this.turn) //Inverting back the turn, without changing move count
-        if(moves.includes(sq_n)) return true
-        return false
+            // if(this.piece(n_sq_n) == 4){
+            //     break;
+            // }
+        }
+        this.turn = this.invert(this.turn, 1) //Inverting back the turn, without changing move count
+        // if(moves.includes(sq_n)) return attackers
+        return {attackers : attackers, moves : movesabs };
+    }
+
+    /**
+     * 
+     * @param {Array} moves array
+     * @param {number} direction  [1 - 16)
+     */
+    go_in_direction( moves , direction){
+
     }
 
      /**
@@ -718,11 +799,11 @@ class PRE_ENGINE{
    
         if(this._y(diff) == 0 && this._x(diff) > 0) return 0;
         else if(diff == 0x12) return 1;
-        else if(diff % 17 == 0) return 2;
+        else if(diff % 17 == 0 && diff > 0) return 2;
         else if(diff == 0x21) return 3;
-        else if(diff % 8 == 0) return 4;
+        else if(diff % 8 == 0 && diff > 0) return 4;
         else if(diff == 0x1F) return 5;
-        else if(diff % 15 == 0) return 6;
+        else if(diff % 15 == 0 && diff > 0) return 6;
         else if(diff == 0x0F) return 7;
         else if(this._y(diff) == 0 && this._x(diff) < 0 ) return 8;
         else if(diff == -0x12) return 9;
@@ -772,4 +853,26 @@ function square_name(i, j = null, type = 'NORMAL'){
 
 function sq_color(i, j = null, type = 'NORMAL'){
     return 0
+}
+
+/**
+ * 
+ * @param {Array} array1 
+ * @param {Array} array2 
+ */
+function intersect(array1, array2){
+    return array1.filter(x =>{
+        return array2.includes(x)
+    });
+}
+
+/**
+ * finds array1 - array2
+ * @param {Array} array1 
+ * @param {Array} array2 
+ */
+function minus(array1, array2){
+    return array1.filter(x =>{
+        return !array2.includes(x);
+    }); 
 }
