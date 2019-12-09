@@ -31,8 +31,9 @@ function preload(){
     var i = 0, j = 0 , k = 0;
     var imf = createImage(100, 100);
     while(i < 6){
-        sho[i] = loadImage('img/' + i + ".png");
-        sho[i + 8] = loadImage('img/' + (i + 8) + ".png");
+        sho[i] = loadImage('./img/' + i + ".png");
+        sho[i + 8] = loadImage('./img/' + (i + 8) + ".png");
+        // sho[i] = __PIECE_FN_SVG[i]
         i++;
     }
     while(i < 8){
@@ -40,6 +41,7 @@ function preload(){
         sho[i + 8] = imf;
         i++;
     }
+    if(!drawer) drawer = new Drawer();
 }
 
 function setup(){
@@ -177,7 +179,9 @@ class Drawer{
         var c = this.board_index(i, j)
         i = c.x; j = c.y
         this.board.move(i, j)
+        console.log("calling valid moves .. . ")
         this.hold_flag = !this.hold_flag;
+        console.log("calling valid moves .. . ")
         this.board.valid_moves(i, j)
     }
 
@@ -200,34 +204,31 @@ class Drawer{
         // console.log(sq.sq.x + " , " + sq.sq.y + " --> " + sq.sq_color())
         // console.log(sq.sq.x + " , " + sq.sq.y + " --> "); console.log(sq_pos)
 
-        //Draw the square
+        // Draw the square
         push();
-        if(sq.sq_color() == 0) fill(this.color[0])//fill(248, 236, 236); //White
-        else fill(this.color[1]);//fill(255, 165, 0);                     //Black
+        if(sq.sq_color() == 0) fill(this.color[0])// fill(248, 236, 236); //White
+        else fill(this.color[1]);// fill(255, 165, 0);                     //Black
         if(this.outline_squares.includes({x: sq.sq.x, y: sq.sq.y})) this.outline();
         else rect(sq_pos.x, sq_pos.y, this.square_dimen[0], this.square_dimen[1]);
         pop();
+        
+        // Draw SquareName:
+        this.texti(sq, sq_pos)
 
-        //Draw SquareName:
-        push();
-        textSize(32)
-        fill(0, 0, 0);
-        text(sq.name, sq_pos.x + 10, sq_pos.y - 10);
-        pop();
-
-        //Draw Piece
+        // Draw Piece
         // console.log(ssq.sq.x + " , " + sq.sq.y + " --> " + sq.piece.piece_id); //console.log(sq_pos)
         image(sho[sq.piece.piece_id], sq_pos.x, sq_pos.y, this.square_dimen[0]- 30, this.square_dimen[1] - 30);
 
 
+        
         //Draw Highligh On Piece
         // console.log("Attack flas : " + this.board.board[sq.sq.x][sq.sq.y].attack_flag )
         if(this.board.board[sq.sq.x][sq.sq.y].attack_flag) this.highlight(sq_pos);
 
-
     }
 
     draw_board(){
+        clear();
         for(var i = 0; i < 8; i++){
             for(var j = 0; j < 8; j++){
                 this.draw_square(this.board.board[i][j])
@@ -250,11 +251,20 @@ class Drawer{
             //rect(this.center.x, this.center.y, this.width, this.height);
             pop();
         }
-        // else {
-        //     strokeWeight(1);
-        //     stroke(1);
-        //     this.draw();
-        // }
+    }
+
+    texti(sq, sq_pos){
+
+        push();
+        // console.log("square name : "+ sq.name, sq_pos.x, sq_pos.y)
+        var textit = createGraphics(this.square_dimen[0]- 30, this.square_dimen[1] - 30)
+        // textit.background(0, 0, 0)
+        textit.rect(0, 0, 25, 25)
+        textit.textSize(25)
+        textit.fill(64);
+        textit.text(sq.name, 0 , 0);
+        image(textit, sq_pos.x, sq_pos.y, this.square_dimen[0]- 30, this.square_dimen[1] - 30);
+        pop();
     }
 
     highlight(sq, mark = true){
@@ -262,7 +272,7 @@ class Drawer{
             // console.log("HHHHHHOOOOOOOOIIIIIIII : "); console.log(sq);
             
             push();
-            fill(color(this.highlight_color));
+            // fill(color(this.highlight_color));
             strokeWeight(2);
             stroke(0);
             ellipse(sq.x + 50, sq.y + 50, 30, 30);
