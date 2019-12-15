@@ -91,6 +91,20 @@ const BOARD_MASK = 0x8
 
 const PIECE_MASK = 0xF
 
+const PIECE_INFO_MASK = 0x7F
+
+const PIECE_INFO_BITS = 7
+
+const PIECE_BITS = 4
+
+const x88_MASK = 0x7F
+
+const x88_MOVE_BITS = 14
+
+const x88_MOVE_MASK = 0x3FFF
+
+const x88_BITS = 7
+
 const DEAD = 0x8 // Square number 8 represents DEAD piece
 
 const DIR_OFF_INV = 0
@@ -172,7 +186,12 @@ const __P_RANK = [0x1, 0x6]
 const __DIRECTION_ARR = [__DIRECTION.KING, __DIRECTION.QUEEN, __DIRECTION.ROOK, __DIRECTION.BISHOP, __DIRECTION.HORSE, __DIRECTION.PAWN, __DIRECTION.DEFAULT, [],
                         __DIRECTION.KING, __DIRECTION.QUEEN, __DIRECTION.ROOK, __DIRECTION.BISHOP, __DIRECTION.HORSE, __DIRECTION.PAWN, __DIRECTION.DEFAULT, []];
 
-const __PIECE_VALUE = [10, 9, 5, 3, 3, 1, 0, 0, 522, 521, 517, 515, 515, 513, 0, 0];
+// const __PIECE_VALUE = [255, 9, 5, 3, 3, 1, 0, 0, 767, 521, 517, 515, 515, 513, 0, 0];
+const __PIECE_VALUE = [1048756, 127, 64, 47, 47, 23, 0, 0, -1048756, -127, -64, -47, -47, -23, 0, 0];
+// const __CAPIECE_VALUE = [1, 2, 5, 3, 3, 1, 0, 0, -255, -9, -5, -3, -3, -1, 0, 0];
+
+
+const PIECE_VALUE_MASK = 0x1ff
 
 const __PIECE_SQ = null
 
@@ -321,7 +340,8 @@ class Board{
         this.style = style
         this.init()
         this.v_moves = []
-        this.engine = new PRE_ENGINE()
+        this.engine = new Engine()
+        this.computer = 1 // Black
     }
 
     init(){
@@ -350,19 +370,49 @@ class Board{
 
     valid_moves(j, i){ // i : x  ; j : y
         this.clear_flag(this.v_moves)
-        var moves = this.engine.valid_moves(Square.x88sqno(i, j))
+        var moves = this.engine.valid_moves(Square.x88sqno(i, j), null, this.engine.turn, true)
         this.v_moves = this.to_visual_array(moves)
-        
+        // console.log("Engine State : ", this.engine)
         this.v_moves.forEach(c =>{
             this.board[c.x][c.y].attack_flag = 1
         });
     }
 
-    move(n_j, n_i){
-        this.engine.move(Square.x88sqno(n_i, n_j))
-        this.update()   
+
+    move_black(){
+        var black_engine = new Engine(this.engine.EB, 1);
+        var sq = black_engine.next_move(null, null, 2);
+        console.log("sq : ", sq)
+        return sq;
     }
 
+    move(n_j, n_i, turn = 0){
+        console.log("turn now : ", this.engine.turn);
+        var moved = this.engine.move(Square.x88sqno(n_i, n_j), null, this.val_moves)
+        console.log("white moved : ", this.engine.turn);
+        this.update()
+
+        if(moved) {
+            var mv = this.move_black();
+            console.log("Engine Board : ", this.engine.EB)
+            var moved =  this.engine.move(mv.sq_n, mv.n_sq_n, null, true)
+            console.log("moved : ", moved);
+            console.log("black moved : ", this.engine.turn);
+            // this.engine.turn = this.engine.turn;//this.engine.invert(this.engine.turn, 1); // Updating outside the engine 
+            this.update();
+        }
+
+    }
+
+    next_move(n_j, n_i){
+        var mv = this.engine.next_move(Square.x88sqno(n_i, n_j), null, 1, this.engine.turn);
+        // console.log("next move is : ", mv);
+        this.engine.sq_n = mv.sq_n;
+        // this.engine.valid_moves(mv.sq_n, null, this.engine.turn, true, false)
+        this.engine.move(mv.n_sq_n, null, null, true);
+        // move
+        return mv
+    }
     update(){
         for(var i = 0; i < 128; i++){
             var c = Square.x88_v40sqno(i);
@@ -373,6 +423,19 @@ class Board{
             }
             
         }
+        // console.log("EB : ", this.engine.EB.map(a=> a&15))
+    }
+
+    cntrl(action){
+        console.log("ACTION  : ", action)
+        if(action == 'undo'){
+            this.engine.undo()
+        }else if(action == 'redo'){
+            this.engine.redo()
+        }else if(action == 'undoone'){
+            this.engine.undo_one()
+        }this.update()
+        console.log("cntrl : EB ", this.engine.EB)
     }
 
 
@@ -401,14 +464,27 @@ class Board{
     }
 }
 
-class PRE_ENGINE{
-    constructor(enboard = null){
-        if(enboard != null) this.EB = enboard
+
+class Engine{
+    constructor(EB, turn = 0){
+        if(EB != null) this.EB = [...EB]     //  Electronic Board x88 format
         else this.init()
-        this.turn = 0
-        this.v_moves = []
-        this.c_sq_n = null
-        this.count = 0 // move count
+        
+        
+        this.p_sq_n = null     //  This is for undo  and redo      
+        this.n_p_sq_n = null   //  operation one move only
+        
+        this.sq_n = null
+
+        this.val_moves = []
+
+        this.hist_move = []
+
+        this.future_move = []
+
+        this.computer = 1
+
+        this.turn = turn
     }
 
     init(){
@@ -465,33 +541,39 @@ class PRE_ENGINE{
         }else return ~num & 7
     }
 
-    capture(n_sq_n){
-        n_sq_n &= 0x7f; 
-        var piece_id = this.piece(n_sq_n)
-        var pr_rank  = piece_id < 5 ? 0: 1;
-        var _2ndindex = (this.EB[n_sq_n] >> 4 & 0x7) 
-        // console.log("board's square : ", this.EB[n_sq_n])
-        var inde = (__BORANK[this.pl_type(n_sq_n)][pr_rank] << 4) + ( _2ndindex + 8) ;
-        console.log("2index : " + _2ndindex);
-        this.EB[inde] = DEAD; // Declaring piece  DEAD
-        console.log("Capturing this the " + piece_id + " of pl_type : " + this.pl_type(n_sq_n) + " to index : " + inde +  " in square part to n_sq_n " + n_sq_n );
-        return this.EB[inde];
+
+    /**
+     * returns if piece info is present in that part of board
+     * @param {number} sq_n
+     */
+    piece_area(sq_n){
+        return (sq_n & BOARD_MASK) == 0
     }
 
-    
-    set_square(n_sq_n){
-        n_sq_n &= 0x7f; 
-        var piece_id = this.piece(n_sq_n)
-        var pr_rank  = piece_id < 5 ? 0: 1;
-        var _2ndindex = (this.EB[n_sq_n] >> 4 & 0x7) 
-        // console.log("board's square : ", this.EB[n_sq_n])
-        var inde = (__BORANK[this.pl_type(n_sq_n)][pr_rank] << 4) + ( _2ndindex + 8) ;
-        console.log("2index : " + _2ndindex);
-        this.EB[inde] = n_sq_n; //(this.EB[sq_n] & 0xffffff40) | sq_n;
-        console.log("Updated this the " + piece_id + " of pl_type : " + this.pl_type(n_sq_n) + " to index : " + inde +  " in square part to n_sq_n " + n_sq_n );
-        return this.EB[inde];
+    on_board(sq_n){
+        return sq_n >= 0 && sq_n < 128
     }
-    
+
+
+    /**
+     * return x co-ordinate of square
+     * @param {number} sq 
+     */
+    _x(sq_n){
+        if(!isFinite(sq_n)) return -1;
+        if(this.piece_area(sq_n)) return sq_n & 7;
+        return -1;
+    }
+
+    /**
+     * returns y co-ordinate of square
+     * @param {number} sq 
+     */
+    _y(sq_n){
+        if(!isFinite(sq_n)) return -1;
+        if(this.piece_area(sq_n)) return sq_n >>> 4;
+        return -1;
+    }
 
     /**
      * 
@@ -522,7 +604,17 @@ class PRE_ENGINE{
         else return false
     }
 
+    // move_encode(sq_n, n_sq_n){
+    //     return ((((sq_n & x88_MASK) << x88_BITS) | this.piece(sq_n, true)) << x88_MOVE_BITS) | (((n_sq_n & x88_MASK) << x88_BITS) | this.piece(n_sq_n, true)) 
+    // }
 
+    move_encode(sq_n, n_sq_n){
+        return ( ((((sq_n & x88_MASK) << PIECE_INFO_BITS) | this.EB[sq_n] & PIECE_INFO_MASK) << x88_MOVE_BITS) | (((n_sq_n & x88_MASK) << PIECE_INFO_BITS) | this.EB[n_sq_n] & PIECE_INFO_MASK)) 
+    }
+
+    move_decode(c_sq_n){
+        return [[(c_sq_n >> (x88_MOVE_BITS + PIECE_INFO_BITS)) & x88_MASK, (c_sq_n >> x88_MOVE_BITS) & PIECE_INFO_MASK], [((c_sq_n >> PIECE_INFO_BITS) & x88_MASK), c_sq_n & PIECE_INFO_MASK]]
+    }
 
     /**
      * return piece value / id on board
@@ -542,66 +634,347 @@ class PRE_ENGINE{
         return 3
     }
 
-    /**
-     * returns if piece info is present in that part of board
-     * @param {number} sq_n
-     */
-    piece_area(sq_n){
-        return (sq_n & BOARD_MASK) == 0
-    }
-
-    on_board(sq_n){
-        return sq_n >= 0 && sq_n < 128
-    }
 
     /**
-     * return x co-ordinate of square
-     * @param {number} sq 
+     * moves the piece on square sq_n to new sqaure of n_sq_n, and set
+     * current sq_n to empty square(6)
+     * if you are in x state
+     * x = undo(move(x))
+     * @param {int} sq_n 
+     * @param {int} n_sq_n 
      */
-    _x(sq_n){
-        if(!isFinite(sq_n)) return -1;
-        if(this.piece_area(sq_n)) return sq_n & 7;
-        return -1;
+    move_nen(sq_n, n_sq_n, valid_moves = null){
+        if(!n_sq_n){    
+            var t_sq_n = sq_n
+            sq_n = n_sq_n ? n_sq_n : this.sq_n
+            n_sq_n = t_sq_n
+        }console.log("sq_n", sq_n, " n_sq_n : ", n_sq_n, !this.sq_n || sq_n == n_sq_n)
+        if(!this.sq_n || sq_n == n_sq_n) return
+        console.log("val _ moves  : ", this.val_moves)
+        if(this.val_moves.length != [].length){
+            valid_moves = this.val_moves
+            console.log("valid_moves", valid_moves , sq_n, !valid_moves.includes(n_sq_n))
+            if(!valid_moves.includes(n_sq_n)) return
+        }
+        this.val_moves = []
+        this.p_sq_n = [sq_n, this.EB[sq_n]]       // [sq_no, piece_info]  piece_info --> (file .. piece_id )
+        this.n_p_sq_n = [n_sq_n, this.EB[n_sq_n]] // [sq_no, piece_info]  piece_info --> (file .. piece_id )  
+        
+        this.hist_move.push(this.move_encode(sq_n, n_sq_n))
+        console.log("hist kmoves : ", this.hist_move)
+        var index = (__BORANK[this.pl_type(sq_n)][this.piece(sq_n) < 5 ? 0: 1] << 4) + (this.EB[sq_n] >> 4 & 0x7)  ;
+        this.EB[index] = sq_n;
+
+        if(this.pl_type(n_sq_n) == 0 || this.pl_type(n_sq_n) == 1){
+            index = (__BORANK[this.pl_type(n_sq_n)][this.piece(n_sq_n) < 5 ? 0: 1] << 4) + (this.EB[n_sq_n] >> 4 & 0x7)  ;
+            this.EB[index] = n_sq_n;
+        }
+
+        this.EB[n_sq_n] = this.EB[this.sq_n]
+        this.EB[sq_n] = EMPTY_SQ
+
+        this.sq_n = n_sq_n      
+
+    }
+
+
+    /**
+     * moves the piece on square sq_n to new sqaure of n_sq_n, and set
+     * current sq_n to empty square(6)
+     * if you are in x state
+     * x = undo(move(x))
+     * @param {int} sq_n 
+     * @param {int} n_sq_n 
+     */
+    move(sq_n, n_sq_n, valid_moves = null, su = false){
+        // console.log("turn : ", this.turn)
+        if(!n_sq_n){    
+            var t_sq_n = sq_n
+            sq_n = this.sq_n
+            n_sq_n = t_sq_n
+        }
+        if(!valid_moves) valid_moves = this.val_moves
+        // console.log("sq_n", sq_n, " n_sq_n : ", n_sq_n, !this.sq_n || sq_n == n_sq_n)
+        if(!sq_n|| sq_n == n_sq_n) return false;
+
+        if(!this.piece_area(sq_n) || !this.piece_area(n_sq_n)) return false;
+        if(this.pl_type(n_sq_n) == this.pl_type(sq_n)) return false;
+        if(this.pl_type(sq_n) == this.invert(this.turn, 1)) return false;
+        
+        if(!sq_n) return false;
+
+        // console.log("valid moves :  ", valid_moves)
+        if(!su){
+            if(!valid_moves.includes(n_sq_n)) return false;
+        }
+        
+
+        
+        this.p_sq_n = [sq_n, this.EB[sq_n]]       // [sq_no, piece_info]  piece_info --> (file .. piece_id )
+        this.n_p_sq_n = [n_sq_n, this.EB[n_sq_n]] // [sq_no, piece_info]  piece_info --> (file .. piece_id )  
+        
+        this.hist_move.push(this.move_encode(sq_n, n_sq_n))
+        // console.log("hist kmoves : ", this.hist_move.map(a => a.toString(16)))
+        if([0, 1].includes(this.pl_type(sq_n))){    
+            var index = (__BORANK[this.pl_type(sq_n)][this.piece(sq_n) < 5 ? 0: 1] << 4) + (this.EB[sq_n] >> 4 & 0x7) + 8;
+            this.EB[index] = n_sq_n;
+        }
+        // console.log("MOVED SUCCESS FULL TILL VALID  CHECKING .. ", sq_n, n_sq_n)
+        // console.log("1. Piece : ", this.piece(sq_n), ", square : ", sq_n, ",  index : ", index, ' n_sq_n : ', n_sq_n)
+        if(this.pl_type(n_sq_n) == 0 || this.pl_type(n_sq_n) == 1){
+            index = (__BORANK[this.pl_type(n_sq_n)][this.piece(n_sq_n) < 5 ? 0: 1] << 4) + (this.EB[n_sq_n] >> 4 & 0x7) + 8;
+            // console.log("2. Piece : ", this.piece(n_sq_n), ", square : ", n_sq_n, ",  index : ", index)
+            this.EB[index] = sq_n;
+        }
+        // console.log("sq_n : ", sq_n, ", n_sq_n : ", n_sq_n) 
+        this.EB[n_sq_n] = this.EB[sq_n]
+        this.EB[sq_n] = EMPTY_SQ
+
+        this.sq_n = null   
+        this.future_move = []
+        this.turn = this.invert(this.turn, 1);
+
+        return true
+    }
+
+
+    /**
+     * undo reverses back one move, 
+     * two times undo results you in same position as earlier
+     * x = undo(undo(x))
+     */
+    undo_one(){
+        // var p_sq_n = [this.p_sq_n, this.EB[this.p_sq_n[0]]]       // [sq_no, piece_info]  piece_info --> (file .. piece_id )
+        // var n_p_sq_n = [this.n_p_sq_n, this.EB[this.n_p_sq_n[0]]] // [sq_no, piece_info]  piece_info --> (file .. piece_id )  
+        
+        // var index = (__BORANK[this.pl_type(this.p_sq_n[0])][this.piece(this.p_sq_n[0]) < 5 ? 0: 1] << 4) + (this.EB[this.p_sq_n[0]] >> 4 & 0x7)  ;
+        // this.EB[index] = this.p_sq_n[0];
+        // index = (__BORANK[this.pl_type(this.n_p_sq_n[0])][this.piece(this.n_p_sq_n[0]) < 5 ? 0: 1] << 4) + (this.EB[this.n_p_sq_n[0]] >> 4 & 0x7)  ;
+        // this.EB[index] = this.n_p_sq_n[0];
+        
+        // this.EB[this.p_sq_n[0]] = this.p_sq_n[1]
+        // this.EB[this.n_p_sq_n[0]] = this.n_p_sq_n[1]
+        // this.p_sq_n = p_sq_n
+        // this.n_p_sq_n = n_p_sq_n
+        
+        // this.turn = this.invert(this.turn, 1);
+
+        if(this.now_undo){
+            this.redo()
+        }
+        if(this.now_redo){
+            this.undo()
+        }
+
+    }
+
+    redo(){
+        if(this.future_move.length == 0) return false;
+        // console.log('hist move before : ', this.future_move)
+        var last_move = this.future_move.pop()
+        // console.log('hist move after : ', this.future_move)
+        last_move = this.move_decode(last_move)
+
+        var p = last_move[0]
+        var n = last_move[1]
+        // console.log("p : ", p, "  n : ", n)
+        // console.log("p : ", p.map(a=>a.toString(16)), "  n : ", n.map(a=>a.toString(16)))
+        this.hist_move.push(this.move_encode(p[0], n[0]))
+        var p_sq_n = [this.p_sq_n, this.EB[this.p_sq_n[0]]]       // [sq_no, piece_info]  piece_info --> (file .. piece_id )
+        var n_p_sq_n = [this.n_p_sq_n, this.EB[this.n_p_sq_n[0]]] // [sq_no, piece_info]  piece_info --> (file .. piece_id )  
+        if([0, 1].includes(this.pl_type(p[0]))){
+            var index = (__BORANK[this.pl_type(p[0])][this.piece(p[0]) < 5 ? 0: 1] << 4) + (this.EB[p[0]] >> 4 & 0x7) + 8 ;
+            this.EB[index] = p[0];
+        }
+        if([0, 1].includes(this.pl_type(n[0]))){
+            var index = (__BORANK[this.pl_type(n[0])][this.piece(n[0]) < 5 ? 0: 1] << 4) + (this.EB[n[0]] >> 4 & 0x7) + 8 ;
+            this.EB[index] = n[0];
+        }
+        
+        this.EB[p[0]] = p[1]// (p[0] & 3) | (p[1] & 0xf)
+        this.EB[n[0]] = n[1]// (n[0] & 3) | (n[1] & 0xf)
+        this.now_redo = true
+        this.turn = this.invert(this.turn, 1);
+
+        return true;
+
+    }
+    undo(){        
+        if(this.hist_move.length == 0) return false;
+        // console.log('hist move before : ', this.hist_move)
+        var last_move = this.hist_move.pop()
+        // console.log('hist move after : ', this.hist_move)
+        last_move = this.move_decode(last_move)
+        
+        var p = last_move[0]
+        var n = last_move[1]
+        this.future_move.push(this.move_encode(p[0], n[0]))
+        // console.log("p : ", p, "  n : ", n)
+        // console.log("p : ", p.map(a=>a.toString(16)), "  n : ", n.map(a=>a.toString(16)))
+        var p_sq_n = [this.p_sq_n, this.EB[this.p_sq_n[0]]]       // [sq_no, piece_info]  piece_info --> (file .. piece_id )
+        var n_p_sq_n = [this.n_p_sq_n, this.EB[this.n_p_sq_n[0]]] // [sq_no, piece_info]  piece_info --> (file .. piece_id )  
+        if([0, 1].includes(this.pl_type(p[0]))){
+            var index = (__BORANK[this.pl_type(p[0])][this.piece(p[0]) < 5 ? 0: 1] << 4) + (this.EB[p[0]] >> 4 & 0x7) + 8 ;
+            this.EB[index] = n[0];
+            // console.log("1. MODIFIED PIECE SQUARE STRORE OF THE BOEARD ====> index : ", index, "  square : ", this.EB[index]);
+        }
+        if([0, 1].includes(this.pl_type(n[0]))){
+            var index = (__BORANK[this.pl_type(n[0])][this.piece(n[0]) < 5 ? 0: 1] << 4) + (this.EB[n[0]] >> 4 & 0x7) + 8 ;
+            this.EB[index] = p[0];
+            // console.log("BORANK  : ", this.pl_type(n[0]), this.piece(n[0]) < 5 ? 0: 1 )
+            // console.log("2. MODIFIED PIECE SQUARE STRORE OF THE BOEARD ====> index : ", index, "  square : ", this.EB[index]);
+        }
+        
+        this.EB[p[0]] = p[1]// (p[0] & 3) | (p[1] & 0xf)
+        this.EB[n[0]] = n[1]// (n[0] & 3) | (n[1] & 0xf)
+        
+        this.now_undo = true
+        this.turn = this.invert(this.turn, 1);
+
+        return true
     }
 
     /**
-     * returns y co-ordinate of square
-     * @param {number} sq 
+     * It evaluates the board and get the integer indicating who is dominating on board
+     * +ve score refer white will be wining
+     * -ve score refer black will be wining 
+     * simple evaluation function deciding wining by influence number of squares 
+     * regardless of piece which is attacking
+     * @returns {int} integer representation the eval score of board
      */
-    _y(sq_n){
-        if(!isFinite(sq_n)) return -1;
-        if(this.piece_area(sq_n)) return sq_n >>> 4;
-        return -1;
+    eval(){
+        var score = 0
+        var piece_prt = 0
+        for(var i = 0; i < 2; i++){
+            var turn = i & 1
+            if(i != turn) continue
+            var offset_multiplier = turn == 1 ? -1 : 1 // offset multiplier +ve for white and -ve for black 
+            // console.log(i, ". offset multiplier : ", offset_multiplier)
+            for(var j = 0; j < 2; j++){
+                var rank = __BORANK[i][j] // rank
+                for(var k = 0; k < 8; k++){
+                    var piece_sq = this.EB[rank << 4 | k | 8] & 0x7F // get the square where current piece is store
+                    if(!this.piece_area(piece_sq)) continue
+                    // piece_prt += __PIECE_VALUE[this.piece(piece_sq, true)]
+                    var al = this.valid_moves(piece_sq, null, turn, true)
+                    score += al.length
+                }
+            }
+        }
+        // print("score : ", score + piece_prt, " sss : ", score, "  ppp : ", piece_prt)
+        return score + piece_prt;
     }
 
     /**
-     * computational Work
+     * 
+     * @param {int} sq_n  current square
+     * @param {int} p_sq_n previous square
+     * @param {int} depth depth of chess chess min-max tree
      */
-
-    move(n_sq_n){
-        // console.log("piece : ", this.piece(n_sq_n, true) , " n_sq_n : " + n_sq_n + " c_sq_n : " + this.c_sq_n + " turn : " + this.turn + "  v_moves : " + this.v_moves)
-        if(this.pl_type(n_sq_n) == this.pl_type(this.c_sq_n)) return;
-        if(this.pl_type(this.c_sq_n) == this.invert(this.turn, 1)) return;
-        if(!this.c_sq_n) return;
-        if(!this.v_moves.includes(n_sq_n)) return;
-        if(this.haves_piece(n_sq_n, )) this.capture(n_sq_n)
-        this.EB[n_sq_n] = this.EB[this.c_sq_n]; // moving piece from c_sq_n --> n_sq_n
-        this.set_square(n_sq_n)
-        this.set_piece(this.c_sq_n, 6);
-        this.turn = (!this.turn & 1);
-        this.count++;
+    next_move(sq_n = 0, p_sq_n = 0, depth = 5, turn = this.turn){
+        // print("TOP depth : ", depth, "  sq_n : ", sq_n, "   n_sq_n : ", p_sq_n)
+        if(depth == 0){
+            var eva = this.eval()
+            // print("DEPTH 0 : ", depth, "  sq_n : ", sq_n, "   n_sq_n : ", p_sq_n, eva)
+            return {score : eva, sq_n : sq_n & x88_MASK, n_sq_n : p_sq_n & x88_MASK}
+        }
+        // var all_moves = this.get_all_moves(turn)
+        var n_sq_n = null
+        // var turn = 0; 
+        // console.log("Suggesting move for player : ", turn, __BORANK[turn][0] , __BORANK[turn][1] )
+        // console.log("all_moves : ", all_moves)
+        var index = 0
+        var sc = null, mx = {score : 1000000, sq_n : 0, n_sq_n : 0};
+        var sc_arr = []
+        var sel_arr = []
+        for(var i = 0; i < 2; i++){
+            var rank = __BORANK[turn][i] // get the rank where pieces are store
+            for(var j = 8; j < 16; j++){
+                n_sq_n = this.EB[(rank << 4 )+ j] & x88_MASK // get the square of piece currently present
+                // console.log("index : ", (rank << 4) + j)
+                if(!this.piece_area(n_sq_n)) continue // Checks if the square got is within piece area of x88 board
+                
+                var temp_moves = this.valid_moves(n_sq_n, null, turn, true) // ,  Dir offset gives all direction for a piece on square wrt current player king
+                // console.log("turn : ", turn, "n_sq_n : ", n_sq_n, " index : ", (rank << 4 )+ j, (rank << 4 ), rank, "TEMP MOVES  : ", temp_moves)
+                // mx = {score : 1000000, sq_n : sq_n, n_sq_n : temp_moves[k]}; 
+                // console.log("n_sq_n original : ", n_sq_n, "temp moves  : ", temp_moves)
+                for(var k = 0; k < temp_moves.length; k++){
+                    var moved = this.move(n_sq_n, temp_moves[k], temp_moves);
+                    // console.log(k, ". Square sq_n : ", Square.sq_name(n_sq_n, null, 'x88'), ",  n_sq_n : ", Square.sq_name(temp_moves[k], null, 'x88'), " moved : ", moved)
+                    // turn = this.invert(turn, 1);
+                    // console.log("depth : ", depth, " sq_n : ", n_sq_n, "   n_sq_n : ", temp_moves[k])
+                    sc = this.next_move(n_sq_n, temp_moves[k], depth - 1, turn)
+                    // console.log(k, ". <= k , be n_sq_n : ", this.EB[(rank << 4 )+ j] & x88_MASK)
+                    var undoed = this.undo()
+                    // console.log(k, "turn : ", this.turn, turn,  "  moved : ", moved, ". undoed : ", undoed)
+                    // console.log(k, ". <= k , af n_sq_n : ", this.EB[(rank << 4 )+ j] & x88_MASK)
+                    
+                    // console.log(k, ". Piece : ", this.piece(sc.sq_n), "  SQUARE |  sq_n : ", Square.sq_name(sc.sq_n, null, 'x88'), sc.sq_n, ",  n_sq_n : ", Square.sq_name(sc.n_sq_n, null, 'x88'), sc.n_sq_n, " score :", sc.score);
+                    sel_arr.push([sc, index])
+                    // console.log("score sc", sc, "score mx : ", mx, sc.score > mx.score, sc.score == mx.score)
+                    // if(turn == 0) sc.score  *= -1
+                    if(sc.score > mx.score && turn == 0) {
+                        // console.log("1. ")
+                        mx = sc;
+                        index = i;
+                        sc_arr = [[mx, index]]
+                    }else if(sc.score == mx.score){
+                        // console.log("2. ")
+                        sc_arr.push([sc, index])
+                    }else if(sc.score < mx.score && turn == 1) {
+                        // console.log("3. ")
+                        mx = sc//{score : sc.score, sq_n: sc.sq_n, n_sq_n : sc.n_sq_n};
+                        index = i;
+                        sc_arr = [[mx, index]]
+                    }
+                }
+            }
+        }
+        // console.log("sel arr : ", sel_arr)
+        // console.log("sc_arr : ", sc_arr)
+        mx = sc_arr[Math.floor(Math.random() * sc_arr.length)][0]
+        // console.log(". index : ", index, "Square to return : ", {score : sc, sq_n : all_moves[index] >> x88_BITS, n_sq_n : all_moves[index] & x88_MASK})
+        return {score : mx.score, sq_n : mx.sq_n, n_sq_n : mx.n_sq_n}
     }
 
-    valid_moves(sq_n, attacked = true, directions = null){
+    get_all_moves(turn){
+        var moves = []
+        for(var i = 0; i < 2; i++){
+            var rank = __BORANK[turn][i] // get the rank where pieces are store
+            for(var j = 8; j < 16; j++){
+                var n_sq_n = this.EB[(rank << 4 )+ j] // get the square of piece currently present
+                // console.log("index : ", (rank << 4) + j)
+                if(!this.piece_area(n_sq_n)) continue // Checks if the square got is within piece area of x88 board
+                
+                var temp_moves = this.valid_moves(n_sq_n, null, turn, true, true) // ,  Dir offset gives all direction for a piece on square wrt current player king
+                // console.log(i, j ,"temp_moves ", temp_moves, Square.sq_name(n_sq_n, null, 'x88'), n_sq_n)
+                Array.prototype.push.apply(moves, temp_moves)
+            }
+        }
+        return moves.sort((a, b) => this.piece(this.EB[a & x88_MASK]) < this.piece(this.EB[b & x88_MASK]))
+    }
+    /**
+     * return moves dict like object
+     * {moves : ... , score : ...}
+     * moves are encoded by first 7 bits from lsb for attacked square and next 7 bits for which square is attacking
+     * individual 7 bits are big-endian coded
+     * 
+     * e.g.  if 7th sqaure is attacking 5th sqaure 
+     * then enoded in hex is :==  0x0705
+     * @param {int} sq_n 
+     * @param {Array} directions 
+     * @param {int} turn 
+     */
+    valid_moves(sq_n, directions = null, turn = this.turn, move = false, en = false){
         if(!this.piece_area(sq_n)) return [];
-        if(attacked) this.c_sq_n = sq_n
+        // if(attacked) this.c_sq_n = sq_n
         var moves = [];
         var piece = this.piece(sq_n);
-         if(this.pl_type(sq_n) != this.turn) return [];
+        if(this.pl_type(sq_n) != turn) return [];
+        // console.log("direction  == ", directions)
         if(piece == 0){ //KING
             if(!directions) moves = this.king_moves(sq_n);
             else moves = this.king_moves(sq_n, directions)
-            
         }
         else if(piece == 1){ //QUEEN
             if(!directions) moves = this.queen_moves(sq_n);
@@ -624,24 +997,26 @@ class PRE_ENGINE{
             else moves = this.pawn_moves(sq_n, directions);
         }else{
             //raise error
+            console.log("ERR MOVE")
         }
-        if(attacked) {
-            this.v_moves = moves
-            var k_locator = __BORANK[this.turn][0]  * 16 + (8 + 4);// King square stores in square part of x88ru board
-            var k_sq_n = this.EB[k_locator];
-            var attack = this.if_attacked(k_sq_n);
-            
-            if(this.piece(sq_n) == 0 || this.piece(sq_n) == 8) moves =  minus(moves , attack.moves)
-            if(attack.moves.length != 0) moves =  intersect(attack.moves, moves);
-            this.v_moves = moves
-            
+
+        this.sq_n = sq_n
+
+        if(move){ 
+            this.val_moves = moves['moves'].map(a => a & x88_MASK)
+            if(en) return moves['moves']
+            else  return this.val_moves
         }
-        return moves;
+        // this.val_moves = []
+
+        return moves // {moves: moves['moves'], 'score' :moves['score']};
     }
 
-    king_moves(sq_n, directions = __DIR_OFFFSET.KING){
+    king_moves(sq_n, directions = __DIR_OFFFSET.KING, turn = this.turn){
         if(!this.piece_area(sq_n)) return []
         var moves = []
+        var score = []
+        var c_piece_val = __PIECE_VALUE[this.piece(sq_n, true)]
         var pl_type = this.pl_type(sq_n)
         var a_sq_n = 0, b_sq_n = 0, can;
         directions.forEach(o => {
@@ -649,15 +1024,24 @@ class PRE_ENGINE{
             for(var i = 0; i < __RANGE.KING; i++){
                 a_sq_n = a_sq_n + o
                 can = this.go_to_square_if_can(a_sq_n, pl_type, moves)
-                if(!can) break
+                if(!can && this.pl_type(a_sq_n) == this.invert(pl_type, 1)) {
+                    // console.log(i, ". square : ", Square.sq_name(a_sq_n, null, 'x88'), a_sq_n & x88_MASK," k pl_type == sq_pl_type : ", this.pl_type(a_sq_n) == this.invert(pl_type, 1), this.pl_type(a_sq_n) , this.invert(pl_type, 1),pl_type)
+                    var f_piece_val = __PIECE_VALUE[this.piece(a_sq_n, true)]
+                    // console.log("f piece :", f_piece_val)
+                    score.push((f_piece_val * -1))
+                    break
+                }if(!can) break
             }
         });
-        return moves
+        return {'moves' : moves.map(a => (sq_n << x88_BITS ) | (a & x88_MASK)), 'score' : score}
     }
      
+
     queen_moves(sq_n, directions = __DIR_OFFFSET.QUEEN){
         if(!this.piece_area(sq_n)) return []
         var moves = []
+        var score = []
+        var c_piece_val = __PIECE_VALUE[this.piece(sq_n, true)]
         var pl_type = this.pl_type(sq_n)
         var a_sq_n = 0, b_sq_n = 0, can;
         directions.forEach(o => {
@@ -665,31 +1049,48 @@ class PRE_ENGINE{
             for(var i = 0; i < __RANGE.QUEEN; i++){
                 a_sq_n = a_sq_n + o
                 can = this.go_to_square_if_can(a_sq_n, pl_type, moves)
-                if(!can) break
+                if(!can && this.pl_type(a_sq_n) == this.invert(pl_type, 1)) {
+                    // console.log(i, ". square : ", Square.sq_name(a_sq_n, null, 'x88'), a_sq_n & x88_MASK, " q pl_type == sq_pl_type : ", this.pl_type(a_sq_n) == this.invert(pl_type, 1), this.pl_type(a_sq_n) , this.invert(pl_type, 1), pl_type)
+                    var f_piece_val = __PIECE_VALUE[this.piece(a_sq_n, true)]
+                    // console.log("f piece :", f_piece_val)
+                    score.push((f_piece_val * -1))
+                    break
+                }if(!can) break
             }
         });
-        return moves
+        return {'moves' : moves.map(a => (sq_n << x88_BITS ) | (a & x88_MASK)), 'score' : score}
     }
 
-    rook_moves(sq_n, directions = __DIR_OFFFSET.ROOK){
+    rook_moves(sq_n, directions = __DIR_OFFFSET.ROOK, turn = this.turn){
         if(!this.piece_area(sq_n)) return []
         var moves = []
+        var score = []
+        var c_piece_val = __PIECE_VALUE[this.piece(sq_n, true)]
         var pl_type = this.pl_type(sq_n);
         var a_sq_n = 0, b_sq_n = 0, can;
+        // console.log("directions === > ", directions)
         directions.forEach(o => {
             a_sq_n = sq_n
             for(var i = 0; i < __RANGE.ROOK; i++){
                 a_sq_n = a_sq_n + o
                 can = this.go_to_square_if_can(a_sq_n, pl_type, moves)
-                if(!can) break
+                if(!can && this.pl_type(a_sq_n) == this.invert(pl_type, 1)) {
+                    // console.log(i, ". square : ", Square.sq_name(a_sq_n, null, 'x88'), a_sq_n & x88_MASK," r pl_type == sq_pl_type : ", this.pl_type(a_sq_n) == this.invert(pl_type, 1), this.pl_type(a_sq_n) , this.invert(pl_type, 1), pl_type)
+                    var f_piece_val = __PIECE_VALUE[this.piece(a_sq_n, true)]
+                    // console.log("f piece :", f_piece_val)
+                    score.push((f_piece_val * -1))
+                    break
+                }if(!can) break
             }
         });
-        return moves
+        return {'moves' : moves.map(a => (sq_n << x88_BITS ) | (a & x88_MASK)), 'score' : score}
     }
 
-    bishop_moves(sq_n , directions = __DIR_OFFFSET.BISHOP){
+    bishop_moves(sq_n , directions = __DIR_OFFFSET.BISHOP, turn = this.turn){
         if(!this.piece_area(sq_n)) return []
         var moves = []
+        var score = []
+        var c_piece_val = __PIECE_VALUE[this.piece(sq_n, true)]
         var pl_type = this.pl_type(sq_n)
         var a_sq_n = 0, b_sq_n = 0, can;
         directions.forEach(o => {
@@ -697,41 +1098,58 @@ class PRE_ENGINE{
             for(var i = 0; i < __RANGE.BISHOP; i++){
                 a_sq_n = a_sq_n + o
                 can = this.go_to_square_if_can(a_sq_n, pl_type, moves)
-                if(!can) break
+                if(!can && this.pl_type(a_sq_n) == this.invert(pl_type, 1)) {
+                    // console.log(i, ". square : ", Square.sq_name(a_sq_n, null, 'x88'), a_sq_n & x88_MASK," b pl_type == sq_pl_type : ", this.pl_type(a_sq_n) == this.invert(pl_type, 1), this.pl_type(a_sq_n) , this.invert(pl_type, 1), pl_type)
+                    var f_piece_val = __PIECE_VALUE[this.piece(a_sq_n, true)]
+                    // console.log("f piece :", f_piece_val)
+                    score.push((f_piece_val * -1))
+                    break
+                }if(!can) break
             }
         });
-        return moves
+        return {'moves' : moves.map(a => (sq_n << x88_BITS ) | (a & x88_MASK)), 'score' : score}
     }
     /**
      * returns array of all possible horse moves on x88ru board
      * @param {number} sq_n encoded x88ru format 
      * @returns {Array} moves array containing all possible moves
      */
-    horse_moves(sq_n, directions = __DIR_OFFFSET.HORSE){
+    horse_moves(sq_n, directions = __DIR_OFFFSET.HORSE, turn = this.turn){
         if(!this.piece_area(sq_n)) return []
         var moves = []
+        var score = []
+        var c_piece_val = __PIECE_VALUE[this.piece(sq_n, true)]
         var can, n_sq_n;
         var pl_type = this.pl_type(sq_n), n_sq_n = 0
         for(var i = 0; i < directions.length; i++){
             n_sq_n = sq_n + directions[i] // new square if horse moved in (2 * i + 1) direction
             can = this.go_to_square_if_can(n_sq_n, pl_type, moves)
-            if(!can) continue
+            if(!can && this.pl_type(n_sq_n) == this.invert(pl_type, 1)) {
+                // console.log(i, ". square : ", Square.sq_name(a_sq_n, null, 'x88'), n_sq_n & x88_MASK," h pl_type == sq_pl_type : ", this.pl_type(a_sq_n) == this.invert(pl_type, 1), this.pl_type(a_sq_n) , this.invert(pl_type, 1), pl_type)
+                var f_piece_val = __PIECE_VALUE[this.piece(n_sq_n, true)]
+                // console.log("f piece :", f_piece_val)
+                score.push((f_piece_val * -1))
+                continue
+            }if(!can) continue
         }
-        return moves
+        return {'moves' : moves.map(a => (sq_n << x88_BITS ) | (a & x88_MASK)), 'score' : score}
     } 
 
     /**
      * 
      * @param {number} sq_n 
      */
-    pawn_moves(sq_n, directions = __DIR_OFFFSET.PAWN){
+    pawn_moves(sq_n, directions = __DIR_OFFFSET.PAWN, turn = this.turn){
         if(!this.piece_area(sq_n)) return []
         
         var pl_type = this.pl_type(sq_n);
         
-        var can, n_sq_n, m_sq_n = sq_n, to_add;
+        var can, n_sq_n, to_add;
 
         var moves = [];
+        var score = [0, 0]
+        var c_piece_val = __PIECE_VALUE[this.piece(sq_n, true)]
+        var f_piece_val = 0
         var L = directions.length
         
         if(directions != __DIR_OFFFSET.PAWN){
@@ -742,16 +1160,19 @@ class PRE_ENGINE{
             L = 3             
         }
 
-
         var offsetm = this.piece(sq_n, true) == 5 ? 1 : -1
         
-        var RANGE = this.rank(sq_n) == __P_RANK[this.turn] ? 2 : 1; // for first move
-
-        // console.log("THIS TURN  : ", this.turn, " __P_RANK[this.turn]", __P_RANK[this.turn], " this.rank(sq_n)", this.rank(sq_n))
+        var RANGE = this.rank(sq_n) == __P_RANK[pl_type] ? 2 : 1; // for first move
 
         n_sq_n = sq_n + offsetm * directions[L - 3]
         to_add = this.pl_type(n_sq_n) == EMPTY_SQ_TYPE ? false : true
-        can = this.go_to_square_if_can(n_sq_n, pl_type, moves, to_add )        
+        can = this.go_to_square_if_can(n_sq_n, pl_type, moves, to_add )    
+        if(!can && this.pl_type(n_sq_n) == this.invert(pl_type, 1)) {
+            // console.log(i, ". square : ", Square.sq_name(a_sq_n, null, 'x88'), a_sq_n & x88_MASK," b pl_type == sq_pl_type : ", this.pl_type(a_sq_n) == this.invert(pl_type, 1), this.pl_type(a_sq_n) , this.invert(pl_type, 1), pl_type)
+            var f_piece_val = __PIECE_VALUE[this.piece(n_sq_n, true)]
+            // console.log("f piece :", f_piece_val)
+            score.push((f_piece_val * -1))
+        }
         
         n_sq_n = sq_n + offsetm * directions[L - 2]
         to_add = this.pl_type(n_sq_n) == EMPTY_SQ_TYPE ? true : false
@@ -765,8 +1186,15 @@ class PRE_ENGINE{
         
         n_sq_n = sq_n + offsetm * directions[L - 1]
         to_add = this.pl_type(n_sq_n) == EMPTY_SQ_TYPE ? false : true
-        can = this.go_to_square_if_can(n_sq_n, pl_type, moves, to_add )        
-        return moves
+        can = this.go_to_square_if_can(n_sq_n, pl_type, moves, to_add )  
+        if(!can && this.pl_type(n_sq_n) == this.invert(pl_type, 1)) {
+            // console.log(i, ". square : ", Square.sq_name(a_sq_n, null, 'x88'), a_sq_n & x88_MASK," b pl_type == sq_pl_type : ", this.pl_type(a_sq_n) == this.invert(pl_type, 1), this.pl_type(a_sq_n) , this.invert(pl_type, 1), pl_type)
+            var f_piece_val = __PIECE_VALUE[this.piece(n_sq_n, true)]
+            // console.log("f piece :", f_piece_val)
+            score.push((f_piece_val * -1))
+        }
+        
+        return {'moves' : moves.map(a => (sq_n << x88_BITS ) | (a & x88_MASK)), 'score' : score}
     }
 
     
@@ -782,6 +1210,7 @@ class PRE_ENGINE{
     go_to_square_if_can(n_sq_n, pl_type, moves = [], add = true){
         if(!add) return false;
         var n_ply_type = this.pl_type(n_sq_n)
+        // console.log("pl_type : ", n_ply_type, pl_type)
         // console.log("N_PLY TYPE : " + n_ply_type)
         if(n_ply_type == 3) return false // out of board
         if(n_ply_type == 2){ // empty square
@@ -846,8 +1275,6 @@ class PRE_ENGINE{
         if(!this.piece_area(sq1) || !this.piece_area(sq2)) return -1 // Both sq1 and sq2 should be in board area
         
         var diff = sq2 - sq1;
-        var xt = this._x(sq2) - this._x(sq1);
-        var yt = this._y(sq2) - this._y(sq1);
    
         if(this._y(diff) == 0 && this._x(diff) > 0) return 0;
         else if(diff == 0x12) return 1;
@@ -868,54 +1295,6 @@ class PRE_ENGINE{
         else return -1;
     }
 
-}
-
-
-class Engine{
-    constructor(EB){
-        this.EB =  EB          //  Electronic Board x88 format
-        this.p_sq_n = null     //  This is for undo  and redo      
-        this.n_p_sq_n = null   //  operation one move only
-    }
-
-    /**
-     * moves the piece on square sq_n to new sqaure of n_sq_n, and set
-     * current sq_n to empty square(6)
-     * if you are in x state
-     * x = undo(move(x))
-     * @param {int} sq_n 
-     * @param {int} n_sq_n 
-     */
-    move(sq_n, n_sq_n){
-        this.p_sq_n = [sq_n, this.EB[sq_n]]       // [sq_no, piece_info]  piece_info --> (file .. piece_id )
-        this.n_p_sq_n = [n_sq_n, this.EB[n_sq_n]] // [sq_no, piece_info]  piece_info --> (file .. piece_id )  
-        this.EB[n_sq_n] = this.EB[this.sq_n]
-        this.EB[sq_n] == EMPTY_SQ
-    }
-
-    /**
-     * undo reverses back one move, 
-     * two times undo results you in same position as earlier
-     * x = undo(undo(x))
-     */
-    undo(){
-        var p_sq_n = [this.p_sq_n, this.EB[this.p_sq_n[0]]]       // [sq_no, piece_info]  piece_info --> (file .. piece_id )
-        var n_p_sq_n = [this.n_p_sq_n, this.EB[this.n_p_sq_n[0]]] // [sq_no, piece_info]  piece_info --> (file .. piece_id )  
-        this.EB[this.p_sq_n[0]] = this.p_sq_n[1]
-        this.EB[this.n_p_sq_n[0]] = this.n_p_sq_n[1]
-        this.p_sq_n = p_sq_n
-        this.n_p_sq_n = n_p_sq_n
-    }
-
-    /**
-     * It evaluates the board and get the integer indicating who is dominating on board
-     * +ve score refer white will be wining
-     * -ve score refer black will be wining 
-     * @returns {int} integer representation the eval score of board
-     */
-    eval(){
-        return 0;
-    }
 
 }
 

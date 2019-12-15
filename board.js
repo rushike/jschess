@@ -26,6 +26,7 @@ function set_color(black, white){
     drawer.init_feature();
 }
 
+cntrl_imges = []
 
 function preload(){
     var i = 0, j = 0 , k = 0;
@@ -41,6 +42,11 @@ function preload(){
         sho[i + 8] = imf;
         i++;
     }
+    
+    cntrl_imges['undo'] = loadImage('./img/undo.png')
+    cntrl_imges['redo'] = loadImage('./img/redo.png')
+    cntrl_imges['undoone'] = loadImage('./img/undoone.png')
+
     if(!drawer) drawer = new Drawer();
 }
 
@@ -94,8 +100,8 @@ function touchEnd(){
     // console.log("touchEnd : Event Triggered. ... .. . .... ..");
     // console.log("Board.ondrag : " + board.ondrag);
     
-    drawer.clicked(mouseX, mouseY)
-    drawer.draw()
+    // drawer.clicked(mouseX, mouseY)
+    // drawer.draw()
 }
 
 // function mouseDragged(){
@@ -104,8 +110,8 @@ function touchEnd(){
 
 function mouseReleased(){
     
-    drawer.clicked(mouseX, mouseY)
-    drawer.draw()
+    // drawer.clicked(mouseX, mouseY)
+    // drawer.draw()
     // console.log("mouseReleased : Event Triggered. ... .. . .... ..");
     // console.log("Board.ondrag : " + board.ondrag);
 }
@@ -169,6 +175,14 @@ class Drawer{
             return  ~num & MASK
         }else return ~num & 7
     }
+    /**
+     * Finds the position on canvas from , index on board, top - left coner origin
+     * @param {number} i = 8
+     * @param {number} 8 >= j >= 0
+     */
+    cntrl_area(i, j){
+        return i == 8 && j <= 8 && j >= 0
+    }
 
     /**
      * update the board on clicking on square
@@ -178,11 +192,25 @@ class Drawer{
     clicked(i, j){
         var c = this.board_index(i, j)
         i = c.x; j = c.y
-        this.board.move(i, j)
-        console.log("calling valid moves .. . ")
+        // console.log("clicked : i : ", i, ",  j : ", j)
+        if(this.cntrl_area(i, j)) return this.register_cntrl_action(i, j)
+        this.board.move(i, j, this.board.engine.turn)
+        // console.log("calling valid moves .. . ")
         this.hold_flag = !this.hold_flag;
-        console.log("calling valid moves .. . ")
+        // console.log("calling valid moves .. . ")
         this.board.valid_moves(i, j)
+        // var e = new Engine(this.board.engine.EB)
+        // var sc = e.()
+        // console.log("EB : ", e.EB)
+        // console.log("Score of board = ", sc)
+        // var moves = e.get_all_moves(0)
+        // console.log("all moves of white are : ", moves)
+    }
+
+    register_cntrl_action(i, j){
+        if(i == 8 && j == 0)  return this.board.cntrl('undo')
+        if(i == 8 && j == 1)  return this.board.cntrl('redo')
+        if(i == 8 && j == 2)  return this.board.cntrl('undoone')
     }
 
     // hold(i, j){
@@ -227,6 +255,38 @@ class Drawer{
 
     }
 
+    draw_undo_redo_buttons(){
+        var sq_pos = this.position(8, 8);
+        // Draw the square
+        push();
+        // if(sq.sq_color() == 0) fill(this.color[0])// fill(248, 236, 236); //White
+        fill(0);// fill(255, 165, 0);                    
+        // if(this.outline_squares.includes({x: sq.sq.x, y: sq.sq.y})) this.outline();
+        rect(sq_pos.x, sq_pos.y, this.square_dimen[0], this.square_dimen[1]);
+        image(cntrl_imges['undo'], sq_pos.x, sq_pos.y, this.square_dimen[0]- 30, this.square_dimen[1] - 30);
+        pop();
+
+        var sq_pos = this.position(8, 9);
+        // Draw the square
+        push();
+        // if(sq.sq_color() == 0) fill(this.color[0])// fill(248, 236, 236); //White
+        fill(0);// fill(255, 165, 0);                    
+        // if(this.outline_squares.includes({x: sq.sq.x, y: sq.sq.y})) this.outline();
+        rect(sq_pos.x, sq_pos.y, this.square_dimen[0], this.square_dimen[1]);
+        image(cntrl_imges['redo'], sq_pos.x, sq_pos.y, this.square_dimen[0]- 30, this.square_dimen[1] - 30);
+        pop();
+
+        var sq_pos = this.position(8, 10);
+        // Draw the square
+        push();
+        // if(sq.sq_color() == 0) fill(this.color[0])// fill(248, 236, 236); //White
+        fill(0);// fill(255, 165, 0);                    
+        // if(this.outline_squares.includes({x: sq.sq.x, y: sq.sq.y})) this.outline();
+        rect(sq_pos.x, sq_pos.y, this.square_dimen[0], this.square_dimen[1]);
+        image(cntrl_imges['undoone'], sq_pos.x, sq_pos.y, this.square_dimen[0]- 30, this.square_dimen[1] - 30);
+        pop();
+    }
+
     draw_board(){
         clear();
         for(var i = 0; i < 8; i++){
@@ -236,8 +296,14 @@ class Drawer{
         }
     }
 
+    draw_controller(){
+        
+        this.draw_undo_redo_buttons()
+    }
+
     draw(){
         this.draw_board()
+        this.draw_controller()
     }
 
 
