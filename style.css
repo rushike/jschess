@@ -1,0 +1,12 @@
+
+.black-square{
+    background-color: #ffa500;
+}
+
+.white-square{
+    background-color: #f8ecec;
+}
+
+.posi {
+    position: absolute;
+}

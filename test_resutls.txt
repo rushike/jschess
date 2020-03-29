@@ -1,0 +1,15 @@
+ISSUE 1.
+
+1. Moves prediction for the pawn is not check if check is given by pawn
+
+2. Pieces moves are not shown but the the can be moved to their respective valid position  .... solved
+
+3. King valid move in direction of attack, non-safe square,  ... solved for pieces not pawn
+
+4. king valid moves still shows in direction of attack, in check ... solved for pieces not pawn
+
+5. If piece is capture then correspondig store on other side of x88 board is not made invalid ...... solved
+
+6. Change definition of haves piece
+
+7. Need to resovle for pin 
