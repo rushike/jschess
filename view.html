@@ -10,6 +10,7 @@
     <script src="const.js"></script>
     <script src="engine.js"></script>
     <script src="board.js"></script>
+    <script src="game.js"></script>
     
   </head>
   <body>
@@ -18,11 +19,7 @@
     </div>
     <script>
 		$(document).ready(()=>{
-      var board = new UiBoard(props = {id : "test"})
-      console.log(board)
-      config.BOARD = board
-      $("#test").html(board.render())
-			board.componentDidMount()
+      var game = new Game(props = {id : "test"})
 		});
     </script>
   </body>
