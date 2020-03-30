@@ -1,5 +1,5 @@
 
-const version = "0.0.1";
+const version = "0.1.0";
 
 /**
  *  Vertical  Representation used x88
@@ -21,6 +21,22 @@ const version = "0.0.1";
  *  ...
  * 
  *  Board class translates it to horizontal one, by replacing : x <--> y
+ * 
+ * @ignore_above
+ * 
+ *  Y
+ *  ^
+ *  |
+ *  |
+ *  |
+ *  |__________________> X
+ * 
+ *  x --> coloums ==> files
+ *  y --> rows    ==> ranks
+ *  
+ * 
+ * 
+ * 
  */
 
 
@@ -218,7 +234,7 @@ const __x88 = [/* Piece Info */ 2, 4, 3, 1, 0, 3, 4, 2, /* Sq Info */ 0x00, 0x01
              /* Piece Info */ 6, 6, 6, 6, 6, 6, 6, 6, /* Sq Info */ 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08,
 
              /* Piece Info */ 13, 13, 13, 13, 13, 13, 13, 13, /* Sq Info */ 0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, // |__\ |    /\  |"" |/
-             /* Piece Info */ 10, 12, 11, 09, 08, 11, 12, 10, /* Sq Info */ 0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77, // |__/ |__ /  \ |__ |\  
+             /* Piece Info */ 10, 12, 11,  9,  8, 11, 12, 10, /* Sq Info */ 0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77, // |__/ |__ /  \ |__ |\  
              ]
 
 const __STANDARD =  [["A", "B", "C", "D", "E", "F", "G", "H"],
@@ -315,7 +331,7 @@ class Square{
     }
 
     set_piece_id(piece_id){
-        this
+        
     }
 
     /**
@@ -341,7 +357,7 @@ class Board{
         this.init()
         this.v_moves = []
         this.engine = new Engine()
-        this.computer = 1 // Black
+        this.computer = 0 // Black
     }
 
     init(){
@@ -372,10 +388,10 @@ class Board{
         this.clear_flag(this.v_moves)
         var moves = this.engine.valid_moves(Square.x88sqno(i, j), null, this.engine.turn, true)
         this.v_moves = this.to_visual_array(moves)
-        // console.log("Engine State : ", this.engine)
         this.v_moves.forEach(c =>{
             this.board[c.x][c.y].attack_flag = 1
         });
+        return this.v_moves;
     }
 
 
@@ -387,20 +403,22 @@ class Board{
     }
 
     move(n_j, n_i, turn = 0){
-        console.log("turn now : ", this.engine.turn);
+        // console.log("turn now : ", this.engine.turn);
+        // console.log("val_moves : ", this.val_moves)
         var moved = this.engine.move(Square.x88sqno(n_i, n_j), null, this.val_moves)
-        console.log("white moved : ", this.engine.turn);
+        // console.log("white moved : ", this.engine.turn);
         this.update()
+        return  moved;
 
-        if(moved) {
-            var mv = this.move_black();
-            console.log("Engine Board : ", this.engine.EB)
-            var moved =  this.engine.move(mv.sq_n, mv.n_sq_n, null, true)
-            console.log("moved : ", moved);
-            console.log("black moved : ", this.engine.turn);
-            // this.engine.turn = this.engine.turn;//this.engine.invert(this.engine.turn, 1); // Updating outside the engine 
-            this.update();
-        }
+        // if(moved) {
+        //     var mv = this.move_black();
+        //     console.log("Engine Board : ", this.engine.EB)
+        //     var moved =  this.engine.move(mv.sq_n, mv.n_sq_n, null, true)
+        //     console.log("moved : ", moved);
+        //     console.log("black moved : ", this.engine.turn);
+        //     // this.engine.turn = this.engine.turn;//this.engine.invert(this.engine.turn, 1); // Updating outside the engine 
+        //     this.update();
+        // }
 
     }
 
@@ -427,15 +445,17 @@ class Board{
     }
 
     cntrl(action){
-        console.log("ACTION  : ", action)
+        // console.log("ACTION  : ", action)
         if(action == 'undo'){
             this.engine.undo()
         }else if(action == 'redo'){
             this.engine.redo()
         }else if(action == 'undoone'){
             this.engine.undo_one()
+        }else {
+            //Do nothing
         }this.update()
-        console.log("cntrl : EB ", this.engine.EB)
+        // console.log("cntrl : EB ", this.engine.EB)
     }
 
 
@@ -499,6 +519,7 @@ class Engine{
 
     init_pieces(){
         for(var i = 0; i < 128; i++){
+            var file = i & 0xF;
             if(this.piece_area(i)){
                 this.EB[i] = file << 4 | __x88[i]
             }
@@ -687,14 +708,12 @@ class Engine{
      * @param {int} n_sq_n 
      */
     move(sq_n, n_sq_n, valid_moves = null, su = false){
-        // console.log("turn : ", this.turn)
         if(!n_sq_n){    
             var t_sq_n = sq_n
             sq_n = this.sq_n
             n_sq_n = t_sq_n
         }
         if(!valid_moves) valid_moves = this.val_moves
-        // console.log("sq_n", sq_n, " n_sq_n : ", n_sq_n, !this.sq_n || sq_n == n_sq_n)
         if(!sq_n|| sq_n == n_sq_n) return false;
 
         if(!this.piece_area(sq_n) || !this.piece_area(n_sq_n)) return false;
@@ -703,7 +722,6 @@ class Engine{
         
         if(!sq_n) return false;
 
-        // console.log("valid moves :  ", valid_moves)
         if(!su){
             if(!valid_moves.includes(n_sq_n)) return false;
         }
@@ -714,7 +732,6 @@ class Engine{
         this.n_p_sq_n = [n_sq_n, this.EB[n_sq_n]] // [sq_no, piece_info]  piece_info --> (file .. piece_id )  
         
         this.hist_move.push(this.move_encode(sq_n, n_sq_n))
-        // console.log("hist kmoves : ", this.hist_move.map(a => a.toString(16)))
         if([0, 1].includes(this.pl_type(sq_n))){    
             var index = (__BORANK[this.pl_type(sq_n)][this.piece(sq_n) < 5 ? 0: 1] << 4) + (this.EB[sq_n] >> 4 & 0x7) + 8;
             this.EB[index] = n_sq_n;
@@ -744,20 +761,6 @@ class Engine{
      * x = undo(undo(x))
      */
     undo_one(){
-        // var p_sq_n = [this.p_sq_n, this.EB[this.p_sq_n[0]]]       // [sq_no, piece_info]  piece_info --> (file .. piece_id )
-        // var n_p_sq_n = [this.n_p_sq_n, this.EB[this.n_p_sq_n[0]]] // [sq_no, piece_info]  piece_info --> (file .. piece_id )  
-        
-        // var index = (__BORANK[this.pl_type(this.p_sq_n[0])][this.piece(this.p_sq_n[0]) < 5 ? 0: 1] << 4) + (this.EB[this.p_sq_n[0]] >> 4 & 0x7)  ;
-        // this.EB[index] = this.p_sq_n[0];
-        // index = (__BORANK[this.pl_type(this.n_p_sq_n[0])][this.piece(this.n_p_sq_n[0]) < 5 ? 0: 1] << 4) + (this.EB[this.n_p_sq_n[0]] >> 4 & 0x7)  ;
-        // this.EB[index] = this.n_p_sq_n[0];
-        
-        // this.EB[this.p_sq_n[0]] = this.p_sq_n[1]
-        // this.EB[this.n_p_sq_n[0]] = this.n_p_sq_n[1]
-        // this.p_sq_n = p_sq_n
-        // this.n_p_sq_n = n_p_sq_n
-        
-        // this.turn = this.invert(this.turn, 1);
 
         if(this.now_undo){
             this.redo()
@@ -770,15 +773,14 @@ class Engine{
 
     redo(){
         if(this.future_move.length == 0) return false;
-        // console.log('hist move before : ', this.future_move)
+
         var last_move = this.future_move.pop()
-        // console.log('hist move after : ', this.future_move)
+
         last_move = this.move_decode(last_move)
 
         var p = last_move[0]
         var n = last_move[1]
-        // console.log("p : ", p, "  n : ", n)
-        // console.log("p : ", p.map(a=>a.toString(16)), "  n : ", n.map(a=>a.toString(16)))
+
         this.hist_move.push(this.move_encode(p[0], n[0]))
         var p_sq_n = [this.p_sq_n, this.EB[this.p_sq_n[0]]]       // [sq_no, piece_info]  piece_info --> (file .. piece_id )
         var n_p_sq_n = [this.n_p_sq_n, this.EB[this.n_p_sq_n[0]]] // [sq_no, piece_info]  piece_info --> (file .. piece_id )  
@@ -809,8 +811,6 @@ class Engine{
         var p = last_move[0]
         var n = last_move[1]
         this.future_move.push(this.move_encode(p[0], n[0]))
-        // console.log("p : ", p, "  n : ", n)
-        // console.log("p : ", p.map(a=>a.toString(16)), "  n : ", n.map(a=>a.toString(16)))
         var p_sq_n = [this.p_sq_n, this.EB[this.p_sq_n[0]]]       // [sq_no, piece_info]  piece_info --> (file .. piece_id )
         var n_p_sq_n = [this.n_p_sq_n, this.EB[this.n_p_sq_n[0]]] // [sq_no, piece_info]  piece_info --> (file .. piece_id )  
         if([0, 1].includes(this.pl_type(p[0]))){
@@ -930,8 +930,6 @@ class Engine{
                 }
             }
         }
-        // console.log("sel arr : ", sel_arr)
-        // console.log("sc_arr : ", sc_arr)
         mx = sc_arr[Math.floor(Math.random() * sc_arr.length)][0]
         // console.log(". index : ", index, "Square to return : ", {score : sc, sq_n : all_moves[index] >> x88_BITS, n_sq_n : all_moves[index] & x88_MASK})
         return {score : mx.score, sq_n : mx.sq_n, n_sq_n : mx.n_sq_n}
@@ -972,6 +970,7 @@ class Engine{
         var piece = this.piece(sq_n);
         if(this.pl_type(sq_n) != turn) return [];
         // console.log("direction  == ", directions)
+        // console.log("sq_n : ", sq_n)
         if(piece == 0){ //KING
             if(!directions) moves = this.king_moves(sq_n);
             else moves = this.king_moves(sq_n, directions)
@@ -1311,7 +1310,7 @@ function array2D(n, m, default_val = null){
     let array = new Array(n); 
 	for(let i = 0; i < n; i++) {
         array[i] = new Array(m); 
-        for(j = 0; j < m; j++){
+        for(let j = 0; j < m; j++){
             array[i][j] = default_val;
         }
 	}
@@ -1327,7 +1326,7 @@ function array2D(n, m, default_val = null){
  */
 function square_name(i, j = null, type = 'NORMAL'){
     if(j == null){
-        MOD = __BTYPE_MOD[type]
+        var MOD = __BTYPE_MOD[type]
         i = i % MOD;
         j = Math.floor(j / MOD);
     }
@@ -1359,3 +1358,35 @@ function minus(array1, array2){
         return !array2.includes(x);
     }); 
 }
+
+
+
+
+// export const CS = {Board, Piece, Engine, Square}
+
+// export const CT = {
+//                     __PIECES_STD, __PIECES_ID, BOARD_MASK ,PIECE_MASK , PIECE_INFO_MASK, PIECE_INFO_BITS ,
+//                     PIECE_BITS,x88_MASK ,x88_MOVE_BITS, x88_MOVE_MASK , x88_BITS ,DEAD,DIR_OFF_INV,EMPTY_SQ_TYPE, EMPTY_SQ ,
+//                     INVALID_SQ,__RANGE, __BORANK , __RANGE_ARR, __DIRECTION , __DIR_LENGTH, __HORSE_MOVES_OFFSET ,__DIR_OFFFSET_M,
+//                     __DIR_OFFFSET, __DIR_OFFFSET_ARR , __P_RANK,__DIRECTION_ARR,__PIECE_VALUE, PIECE_VALUE_MASK, __PIECE_SQ, __PIECE_INFL,
+//                     __PIECE ,__CLASSIC ,__STANDARD, __BTYPE_MOD, __STYLE, FUNCTION_START, FUNCTION_END
+
+//                 }
+
+// export const FN = {
+//     sq_color, intersect, minus, square_name
+// }
+const E = {
+                    Board, Piece, Engine, Square,
+
+                    __PIECES_STD, __PIECES_ID, BOARD_MASK ,PIECE_MASK , PIECE_INFO_MASK, PIECE_INFO_BITS ,
+                    PIECE_BITS,x88_MASK ,x88_MOVE_BITS, x88_MOVE_MASK , x88_BITS ,DEAD,DIR_OFF_INV,EMPTY_SQ_TYPE, EMPTY_SQ ,
+                    INVALID_SQ,__RANGE, __BORANK , __RANGE_ARR, __DIRECTION , __DIR_LENGTH, __HORSE_MOVES_OFFSET ,__DIR_OFFFSET_M,
+                    __DIR_OFFFSET, __DIR_OFFFSET_ARR , __P_RANK,__DIRECTION_ARR,__PIECE_VALUE, PIECE_VALUE_MASK, __PIECE_SQ, __PIECE_INFL,
+                    __PIECE ,__CLASSIC ,__STANDARD, __BTYPE_MOD, __STYLE, FUNCTION_START, FUNCTION_END,
+
+
+                    sq_color, intersect, minus, square_name
+                }
+
+//  git diff HEAD:F:\rushikesh\project\chess-board\engine (2).js F:\rushikesh\project\chess-board\engine (2).js

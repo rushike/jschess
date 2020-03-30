@@ -1,350 +1,344 @@
+const redox = './images/redo_icon.svg'
 
-var sho = []
+const undox = './images/undo_icon.svg'
 
-var drawer = null;
+const blank = './images/blank.svg'
 
-var WIDTH = 800
-var COLOR = ["#F8ECEC", "#FFA500"];
-var HEIGHT = 800
+var config = {
+        WHITE :     '#f8ecec',
+        BLACK :     '#ffa500',
+        HIGHLIGHT : '#646400',
+        CONTROLLER : {
+                redo : redox,
+                undo : undox,
+                blank : blank
+        },
+        SQ_SIZE: 10,
+        BOARD : null
+};
 
-function set_height(y){
-    HEIGHT = y;
+class Component{
+    constructor(props){
+        this.props = props;
+    }
 }
 
-function set_width(x){
-    HEIGHT = x;
+class converter{
+    static vh2px(value) {
+        var w = window,
+          d = document,
+          e = d.documentElement,
+          g = d.getElementsByTagName('body')[0],
+          x = w.innerWidth || e.clientWidth || g.clientWidth,
+          y = w.innerHeight|| e.clientHeight|| g.clientHeight;
+      
+        var result = (y*value)/100;
+        return result;
+      }
+      static vw2px(value) {
+        var w = window,
+          d = document,
+          e = d.documentElement,
+          g = d.getElementsByTagName('body')[0],
+          x = w.innerWidth || e.clientWidth || g.clientWidth,
+          y = w.innerHeight|| e.clientHeight|| g.clientHeight;
+      
+        var result = (x*value)/100;
+        return result;
+      }
+
+      static percent2px(value, rootdivid = 'chess-board') {
+        var g = document.getElementById(rootdivid);
+        var x = g.clientWidth,
+          y = g.clientHeight; 
+        const result = {
+            x : (x*value)/100,
+            y : (y*value)/100
+        };
+        return result;
+      }
 }
 
-function set_dimen(i, j){
-    WIDTH = i;
-    HEIGHT = j;
-}
-
-function set_color(black, white){
-    COLOR = [white, black];
-    if(!drawer) drawer = new Drawer();
-    drawer.init_feature();
-}
-
-cntrl_imges = []
-
-function preload(){
-    var i = 0, j = 0 , k = 0;
-    var imf = createImage(100, 100);
-    while(i < 6){
-        sho[i] = loadImage('./img/' + i + ".png");
-        sho[i + 8] = loadImage('./img/' + (i + 8) + ".png");
-        // sho[i] = __PIECE_FN_SVG[i]
-        i++;
-    }
-    while(i < 8){
-        sho[i] = imf;
-        sho[i + 8] = imf;
-        i++;
-    }
-    
-    cntrl_imges['undo'] = loadImage('./img/undo.png')
-    cntrl_imges['redo'] = loadImage('./img/redo.png')
-    cntrl_imges['undoone'] = loadImage('./img/undoone.png')
-
-    if(!drawer) drawer = new Drawer();
-}
-
-function setup(){
-    createCanvas(900, 800);
-    if(!drawer) drawer = new Drawer()
-    drawer.draw()
-}
-
-function draw(){
-
-}
-
-
-
-
-function mouseMoved(){
-    // console.log("mouseMoved : Event Triggered. ... .. . .... ..");
-    // console.log("Board.ondrag : " + board.ondrag);
-    // drawer.hold(mouseX, mouseY);
-}
-
-function mousePressed(){
-    // console.log("mousePressed : Event Triggered. ... .. . .... ..");
-    // console.log("Board.ondrag : " + board.ondrag);
-    drawer.clicked(mouseX, mouseY)
-    drawer.draw()
-}
-
-function mouseClicked(){
-    // console.log("mouseClicked : Event Triggered. ... .. . .... ..");
-    // console.log("Board.ondrag : " + board.ondrag);
-}
-
-function touchStarted(){
-    // loop();
-
-    drawer.clicked(mouseX, mouseY)
-    drawer.draw()
-    // console.log("touchStarted : Event Triggered. ... .. . .... ..");
-    // console.log("Board.ondrag : " + board.ondrag);
-}
-
-function touchMoved(){
-    // console.log("touchMoved : Event Triggered. ... .. . .... ..");
-    // console.log("Board.ondrag : " + board.ondrag);
-    
-}
-
-function touchEnd(){
-    // console.log("touchEnd : Event Triggered. ... .. . .... ..");
-    // console.log("Board.ondrag : " + board.ondrag);
-    
-    // drawer.clicked(mouseX, mouseY)
-    // drawer.draw()
-}
-
-// function mouseDragged(){
-//     loop();
-// }
-
-function mouseReleased(){
-    
-    // drawer.clicked(mouseX, mouseY)
-    // drawer.draw()
-    // console.log("mouseReleased : Event Triggered. ... .. . .... ..");
-    // console.log("Board.ondrag : " + board.ondrag);
-}
-
-
-
-class Drawer{
-    constructor(){
-        this.board = new Board();
-        this.board_dimen = [WIDTH, HEIGHT]; // width;  height
-        this.square_dimen = [this.board_dimen[0] >> 3, this.board_dimen[1] >> 3]
-        this.color = COLOR //0 -- White;  1 -- Black
-        this.highlight_color = "#FFF787" // Highlight color, It will be a circular spot in middle of square
-        this.outline_squares = [] // It stores square(with x & y co - ordinates) to be highlight
-        this.outline = 2 // It stores outline width in pixels
-        this.c_sq_n = {x : 0, y : 0} //It will store the current square no clicked , in x, y 2D form 
-        this.hold_flag = false;
-    }
-
-    init_feature(){ // Will not reint the board
-        this.board_dimen = [WIDTH, HEIGHT]; // width;  height
-        this.square_dimen = [this.board_dimen[0] >> 3, this.board_dimen[1] >> 3]
-        this.color = COLOR //0 -- White;  1 -- Black
-        this.highlight_color = "#FFF787" // Highlight color, It will be a circular spot in middle of square
-    }
-    set_c_sq_n(x, y){
-        this.c_sq_n.x = x; this.c_sq_n.y = y;
-    }
-    set_highlight_color(hex_str){
-        this.highlight_color = hex_str;
-    }
-    set_color(white, black){
-        this.color[0] = white; this.color[1] = black;
-    }
-    set_board_dimen(width, height){
-        this.board_dimen[0] = width;
-        this.board_dimen[1] = height;
-    }
-
-    /**
-     * Finds the position on canvas from , index on board, top - left coner origin
-     * @param {number} i < 8
-     * @param {number} j < 8
-     */
-    position(i, j){
-        return {x : i * this.square_dimen[0], y : this.invert(j) * this.square_dimen[1] }
-    }
-    
-    /**
-     * Finds the index of square on board
-     * @param {number} X 
-     * @param {number} Y 
-     */
-    board_index(X, Y){
-        return {x : Math.floor(X / this.square_dimen[0]), y : this.invert(Math.floor(Y / this.square_dimen[1])) }
-    }
-
-    invert(num, bits = 0){
-        if(bits){
-            var MASK = 1 << bits - 1
-            return  ~num & MASK
-        }else return ~num & 7
-    }
-    /**
-     * Finds the position on canvas from , index on board, top - left coner origin
-     * @param {number} i = 8
-     * @param {number} 8 >= j >= 0
-     */
-    cntrl_area(i, j){
-        return i == 8 && j <= 8 && j >= 0
-    }
-
-    /**
-     * update the board on clicking on square
-     * @param {number} i 
-     * @param {number} j 
-     */
-    clicked(i, j){
-        var c = this.board_index(i, j)
-        i = c.x; j = c.y
-        // console.log("clicked : i : ", i, ",  j : ", j)
-        if(this.cntrl_area(i, j)) return this.register_cntrl_action(i, j)
-        this.board.move(i, j, this.board.engine.turn)
-        // console.log("calling valid moves .. . ")
-        this.hold_flag = !this.hold_flag;
-        // console.log("calling valid moves .. . ")
-        this.board.valid_moves(i, j)
-        // var e = new Engine(this.board.engine.EB)
-        // var sc = e.()
-        // console.log("EB : ", e.EB)
-        // console.log("Score of board = ", sc)
-        // var moves = e.get_all_moves(0)
-        // console.log("all moves of white are : ", moves)
-    }
-
-    register_cntrl_action(i, j){
-        if(i == 8 && j == 0)  return this.board.cntrl('undo')
-        if(i == 8 && j == 1)  return this.board.cntrl('redo')
-        if(i == 8 && j == 2)  return this.board.cntrl('undoone')
-    }
-
-    // hold(i, j){
-    //     if(this){    
-    //         var c = this.board_index(i, j)
-    //         var piece_id = this.board.get_piece(c.x, c.y);
-    //         image(sho[piece_id], i, j, this.square_dimen[0]- 30, this.square_dimen[1] - 30);
-    //     }
-    // }
-
-    /**Drawer*/
-
-    /**
-     * 
-     * @param {Square} sq 
-     */
-    draw_square(sq){
-        var sq_pos = this.position(sq.sq.x, sq.sq.y);
-        // console.log(sq.sq.x + " , " + sq.sq.y + " --> " + sq.sq_color())
-        // console.log(sq.sq.x + " , " + sq.sq.y + " --> "); console.log(sq_pos)
-
-        // Draw the square
-        push();
-        if(sq.sq_color() == 0) fill(this.color[0])// fill(248, 236, 236); //White
-        else fill(this.color[1]);// fill(255, 165, 0);                     //Black
-        if(this.outline_squares.includes({x: sq.sq.x, y: sq.sq.y})) this.outline();
-        else rect(sq_pos.x, sq_pos.y, this.square_dimen[0], this.square_dimen[1]);
-        pop();
+class State{
+    constructor(board){
+        this.board = board ? board : null; 
+        this.sq_n = null;
+        this.valid_moves = [];
+        this.clicked = false;
+        this.movenow = false;
+        this.cntrl = {type : 'nan'};
         
-        // Draw SquareName:
-        this.texti(sq, sq_pos)
+    }
+    get(){
+        this.clicked = !this.clicked;
+        return this;
+    }
+    move(){
+        if(this.contains(this.sq_n)){ // x ==? f,   y ==? r
+            this.movenow = true
+        }else this.movenow = false
+        return this.movenow;
+    }
+    
+    contains(n_sq_n){
+        return this.valid_moves.map(x => this.x88_sq_id({r : x.y, f : x.x})).includes(this.x88_sq_id(n_sq_n))
+    }
 
-        // Draw Piece
-        // console.log(ssq.sq.x + " , " + sq.sq.y + " --> " + sq.piece.piece_id); //console.log(sq_pos)
-        image(sho[sq.piece.piece_id], sq_pos.x, sq_pos.y, this.square_dimen[0]- 30, this.square_dimen[1] - 30);
+    set_cntrl(type){
+        this.cntrl.type = type;
+    }
+
+    set_board(board){
+        this.board = board;
+        return this;
+    }
+
+    set_sq_n(sq_n){
+        this.clicked = true;
+        this.sq_n = sq_n;
+    }
+    set_valid_moves(valid_moves){
+        this.clicked = true;
+        this.valid_moves = valid_moves;
+    }
+    set(sq_n, valid_moves){
+        this.clicked = true;
+        this.valid_moves = valid_moves;
+        this.sq_n = sq_n
+    }
+    x88_sq_id(sq_n){
+        if(sq_n) return (sq_n.r << 4) | sq_n.f
+        if(this.sq_n == null) return null;
+        return (this.sq_n.r << 4) | this.sq_n.f;
+    }
+}
 
 
+class Click{
+    static clicked_square(r, f){
+        console.log("square clicked : id ", r, f)
+        config.BOARD.ui_board[r][f].clicked_square()
+        config.BOARD.clicked_board()
+        return
+    }
+
+    static clicked_board(){
+        console.log("board clicked")
+        return
+    }
+}
+
+class UiSquare extends Component{
+    constructor(props){
+        super(props)
+        this.statex = props.statex;
+        this.sq_id = props.sq_id;
+        this.piece_id = this.set_piece_id(this.sq_id);
+        this.attacked = false
+        this.state = {sq_id : this.sq_id, statex : this.statex},
+        this.divid = props.divid
+        this.check_if_cntrl_clicked = this.check_if_cntrl_clicked.bind(this);
+    }
+    componentDidMount() {
+        console.debug(`Basic Square Mounted with HTML`)
+        // this.draw_square()
+        this.draw_name()
+        if(this.attacked){
+            this.highlight_square()
+        }
+    }
+
+    shouldComponentUpdate(){ 
+        this.check_if_cntrl_clicked()
+        this.set_piece_id(this.sq_id)
+        return true
+    }
+    
+
+    check_if_cntrl_clicked(){
+        if(this.statex.cntrl.type != 'nan'){
+            this.statex.board.eboard.cntrl(this.statex.cntrl.type);
+            this.statex.set_cntrl('nan');
+            this.setState({statex : this.statex.get()}) // initiates react re-render mechanism
+        }
+    }
+
+    clicked_square(){
+        this.statex.set_sq_n(this.sq_id) 
+        if(this.statex.move()){
+            return;
+        }
+    } 
+
+    draw_square(){
+        let k = this.sq_id;
+        var color;
+        if((k.f ^ k.r) & 1) color = config.WHITE
+        else color = config.BLACK
+    
+        const canvas = $(`#${this.sq_name()}`)[0]
+        console.info(`canvas : ${canvas}`)
+        const ctx = canvas.getContext("2d")
+
+        ctx.fillStyle = color;
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+    }
+    highlight_square(){
+        const canvas = $(`#${this.sq_name()}`)[0]
+        const ctx = canvas.getContext("2d")
+        var x = canvas.width / 2, y = canvas.height / 2;
+        ctx.arc(x, y, 0.3 * x, 0, 2 * Math.PI)
+        ctx.fillStyle = config.HIGHLIGHT
+        ctx.fill()
+    }
+
+    draw_name(){
+        const canvas = $(`#${this.sq_name()}`)[0]
+        const ctx = canvas.getContext("2d")
+        ctx.fillStyle = "#000"
+        ctx.font = "12px Courier"
+
+        ctx.fillText(this.sq_name(), converter.vh2px(0.5), this.props.height - converter.vh2px(0.8))
+        ctx.fillText(this.sq_name('x88'), this.props.width - converter.vh2px(3), this.props.height - converter.vh2px(0.8))
+    }
+
+    sq_color(){
+        let k = this.props.sq_id;
+        return constant.bg_cname[~(k.f ^ k.r) & 1]
+    }
+
+    set_piece_id(k){
+        // console.debug(`statex.board : ${this.statex.board.eboard.board}`, this.statex.board)
+        this.piece_id = this.statex.board.eboard.board[k.r][k.f].piece.piece_id//E.__PIECES_STD[w]
+        return this.piece_id
+    }
+
+    sq_name(type = '8x8'){
+        let k = this.props.sq_id;
+        if(type == '8x8') return constant.FILE[k.f] + k.r.toString()
+        else if(type == 'x88') return (k.r << 4) | k.f 
+    }
+
+    render(){
+        // this.attacked = this.statex.contains(this.sq_id)
+        return  `<div class = ${this.sq_color()} onClick = 'Click.clicked_square(${this.sq_id.r}, ${this.sq_id.f})' style = 'width: ${config.SQ_SIZE}vh; height:${config.SQ_SIZE}vh;'>
+                    <div class= "posi" style="position:absolute;width:${config.SQ_SIZE}vh;height:${config.SQ_SIZE}vh;"> ${SVG.piece_svg(this.piece_id, 50)}</div>
+                    <canvas ref = "canvas" id = ${this.sq_name()} className= 'posi' width = ${this.props.width} height =${this.props.height} style="position:absolute"/>
+                </div>`
         
-        //Draw Highligh On Piece
-        // console.log("Attack flas : " + this.board.board[sq.sq.x][sq.sq.y].attack_flag )
-        if(this.board.board[sq.sq.x][sq.sq.y].attack_flag) this.highlight(sq_pos);
+    }
+}
 
+class UiBoard extends Component{
+    constructor(props){
+        super(props);
+        this.divid = props.id
+        this.eboard = new E.Board(); //ab
+        this.state = {engine : this.eboard, statex : this.statex}
+        this.statex = new State(this)
+        this.ui_board = this.init_ui_board()
+        this.clicked_board = this.clicked_board.bind(this);
+        this.check_if_cntrl_clicked = this.check_if_cntrl_clicked.bind(this);
     }
 
-    draw_undo_redo_buttons(){
-        var sq_pos = this.position(8, 8);
-        // Draw the square
-        push();
-        // if(sq.sq_color() == 0) fill(this.color[0])// fill(248, 236, 236); //White
-        fill(0);// fill(255, 165, 0);                    
-        // if(this.outline_squares.includes({x: sq.sq.x, y: sq.sq.y})) this.outline();
-        rect(sq_pos.x, sq_pos.y, this.square_dimen[0], this.square_dimen[1]);
-        image(cntrl_imges['undo'], sq_pos.x, sq_pos.y, this.square_dimen[0]- 30, this.square_dimen[1] - 30);
-        pop();
-
-        var sq_pos = this.position(8, 9);
-        // Draw the square
-        push();
-        // if(sq.sq_color() == 0) fill(this.color[0])// fill(248, 236, 236); //White
-        fill(0);// fill(255, 165, 0);                    
-        // if(this.outline_squares.includes({x: sq.sq.x, y: sq.sq.y})) this.outline();
-        rect(sq_pos.x, sq_pos.y, this.square_dimen[0], this.square_dimen[1]);
-        image(cntrl_imges['redo'], sq_pos.x, sq_pos.y, this.square_dimen[0]- 30, this.square_dimen[1] - 30);
-        pop();
-
-        var sq_pos = this.position(8, 10);
-        // Draw the square
-        push();
-        // if(sq.sq_color() == 0) fill(this.color[0])// fill(248, 236, 236); //White
-        fill(0);// fill(255, 165, 0);                    
-        // if(this.outline_squares.includes({x: sq.sq.x, y: sq.sq.y})) this.outline();
-        rect(sq_pos.x, sq_pos.y, this.square_dimen[0], this.square_dimen[1]);
-        image(cntrl_imges['undoone'], sq_pos.x, sq_pos.y, this.square_dimen[0]- 30, this.square_dimen[1] - 30);
-        pop();
-    }
-
-    draw_board(){
-        clear();
+    init_ui_board(){
+        let ui_board = []
+        console.debug(`divid : ${this.divid}`)
         for(var i = 0; i < 8; i++){
+            ui_board.push([])
             for(var j = 0; j < 8; j++){
-                this.draw_square(this.board.board[i][j])
+                ui_board[i].push(new UiSquare(
+                    {
+                        sq_id : {
+                            r : j,
+                            f : i
+                        },
+                        statex : this.statex,
+                        width : converter.vh2px(config.SQ_SIZE), // in pixels
+                        height : converter.vh2px(config.SQ_SIZE), // in pixels
+                        color : null,
+                        divid : this.divid
+                    }
+                ))
+            }
+        }
+        return ui_board;
+    }
+    componentDidMount(){
+        for(var i = 0; i < this.ui_board.length; i++){
+            for(var j = 0; j < this.ui_board.length; j++){
+                this.ui_board[i][j].componentDidMount()
             }
         }
     }
-
-    draw_controller(){
-        
-        this.draw_undo_redo_buttons()
+    componentDidUpdate(){
     }
 
-    draw(){
-        this.draw_board()
-        this.draw_controller()
+    shouldComponentUpdate(){
+        // this.check_if_cntrl_clicked();
+        return true;
     }
 
-
-    outline(bool = true){
-        if(bool){
-            push();
-            strokeWeight(3);
-            stroke(15);
-            noFill();
-            tint(255, 127);
-            //rect(this.center.x, this.center.y, this.width, this.height);
-            pop();
+    check_if_cntrl_clicked(){
+        if(this.statex.cntrl.type != 'nan'){
+            this.eboard.cntrl(this.statex.cntrl.type);
+            this.statex.set_cntrl('nan');
+            this.setState({statex : this.statex.get()}) // initiates react re-render mechanism
         }
     }
 
-    texti(sq, sq_pos){
-
-        push();
-        // console.log("square name : "+ sq.name, sq_pos.x, sq_pos.y)
-        var textit = createGraphics(this.square_dimen[0]- 30, this.square_dimen[1] - 30)
-        // textit.background(0, 0, 0)
-        textit.rect(0, 0, 25, 25)
-        textit.textSize(25)
-        textit.fill(64);
-        textit.text(sq.name, 0 , 0);
-        image(textit, sq_pos.x, sq_pos.y, this.square_dimen[0]- 30, this.square_dimen[1] - 30);
-        pop();
+    clicked_board(){
+        console.log("Clicked board")
+        var mv = this.eboard.move(this.statex.sq_n.r, this.statex.sq_n.f)
+        console.log(`sq_n statex : ${this.statex}`, this.statex)
+        var valid_moves = this.eboard.valid_moves(this.statex.sq_n.r, this.statex.sq_n.f) // (f, r) == > (x, y)  x --> coloums ==> files  ,,   y --> rows    ==> ranks
+        console.log(`valid_moves statex : ${this.statex}`, this.statex)
+        this.statex.set_valid_moves(valid_moves)
+        this.statex = this.statex.get() // initiates rect re-render mechanism
+        console.log(`last statex : ${this.statex}`, this.statex)
     }
 
-    highlight(sq, mark = true){
-        if(mark) {
-            // console.log("HHHHHHOOOOOOOOIIIIIIII : "); console.log(sq);
-            
-            push();
-            // fill(color(this.highlight_color));
-            strokeWeight(2);
-            stroke(0);
-            ellipse(sq.x + 50, sq.y + 50, 30, 30);
-            tint(255, 70);
-            pop();
-        }
+    draw_row(j){
+        let row = []
+        for(var i = 0; i < 8; i++){
+            row.push(
+                // <Square sq_id  = {{r : j, f : i}} statex = {this.statex} width = '80' height = '80' color = 'null'/>
+                `<div style = "display:inline-block">
+                    ${this.ui_board[i][j].render()}
+                </div>` 
+                )
+        }return row
     }
-
+    draw_board(){
+        let board = []
+        for(var i = 7; i >= 0; i--){
+            board.push(
+                `<div>
+                    ${this.draw_row(i)}
+                </div>`
+            )
+        }return board
+    }
+    uistring(){
+        var div_board  = this.draw_board()
+        var string = '';
+        for(var i = 0; i < div_board.length; i++){
+            for(var j = 0; j < div_board[i].length; j++){
+                string += div_board[i][j]
+            }
+        }return string
+    }
+    render(){
+        console.debug()
+        return `<div >
+                    ${this.uistring()} 
+                </div>`
+    }
 }
+
+
+// export const Component;
+// export const Click;
+// export const Square;
+// export const Board;

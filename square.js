@@ -1,12 +1,12 @@
-import React, { Component } from 'react'
-import CONST from './const'
+// import React, { Component } from 'react'
+// import constant from './const'
 
-import config from './config.js'
+// import config from './config.js'
 
-import piece_svg from './pieces.js'
-import {E} from './engine.js'
+// import piece_svg from './pieces.js'
+// import {E} from './engine.js'
 
-import './style.css'
+// import './style.css'
 
 
 
@@ -57,7 +57,6 @@ class Square extends Component{
     }
 
     clicked(){
-
         this.statex.set_sq_n(this.sq_id) 
         if(this.statex.move()){
             return;
@@ -99,7 +98,7 @@ class Square extends Component{
 
     sq_color(){
         let k = this.props.sq_id;
-        return CONST.BW_CNAME[~(k.f ^ k.r) & 1]
+        return constant.bg_cname[~(k.f ^ k.r) & 1]
     }
 
     set_piece_id(k){
@@ -109,20 +108,18 @@ class Square extends Component{
 
     sq_name(type = '8x8'){
         let k = this.props.sq_id;
-        if(type == '8x8') return CONST.FILE[k.f] + k.r.toString()
+        if(type == '8x8') return constant.FILE[k.f] + k.r.toString()
         else if(type == 'x88') return (k.r << 4) | k.f 
     }
 
     render(){
         this.attacked = this.statex.contains(this.sq_id)
-        return (
-            <span onClick = {this.clicked}>
-                <span className= 'posi'  >{piece_svg(this.piece_id, 50)} </span>   
-                <canvas ref = "canvas"  className= 'posi' className= {this.sq_color()} width = {this.props.width} height = {this.props.height}  />
-            </span>
-        )
+        return `<span onClick = Click.square_clicked}>` + 
+                `<span className= 'posi'  >` + SVG.piece_svg(this.piece_id, 50) + `</span>` + 
+                `<canvas ref = "canvas"  className= 'posi' className= ` + this.sq_color() + ` width = ` + this.props.width} height = {this.props.height}  />
+            `</span>`
+        
     }
 }
-
 
 export default Square;

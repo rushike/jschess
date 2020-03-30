@@ -1,17 +1,29 @@
+<!DOCTYPE html>
 <html>
   <head>
 
+	<link rel="stylesheet" href="style.css">
+
+    <script src="https://code.jquery.com/jquery-3.4.1.js"></script>
     <script src="p5.js"></script>
-    <!-- <script src="pieces.js"></script> -->
+    <script src="pieces.js"></script>
+    <script src="const.js"></script>
     <script src="engine.js"></script>
     <script src="board.js"></script>
     
   </head>
   <body>
+    <div id = "test" style="width: 60rem;height: 60rem;">
+
+    </div>
     <script>
-      // var pe = new PRE_ENGINE()
-      // var e = new Engine(pe.EB)
-      // e.eval()
+		$(document).ready(()=>{
+      var board = new UiBoard(props = {id : "test"})
+      console.log(board)
+      config.BOARD = board
+      $("#test").html(board.render())
+			board.componentDidMount()
+		});
     </script>
   </body>
 </html>

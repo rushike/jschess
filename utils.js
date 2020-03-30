@@ -5,11 +5,8 @@ class State{
         this.board = board ? board : null; 
         this.sq_n = null;
         this.valid_moves = [];
-
         this.clicked = false;
-
         this.movenow = false;
-
         this.cntrl = {type : 'nan'};
         
     }

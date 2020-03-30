@@ -1,5 +1,5 @@
-const CONST = {
-    BW_CNAME : {
+const constant = {
+    bg_cname : {
     0 : 'white-square',
     1 : 'black-square',
     black : 'black-square',
@@ -11,4 +11,4 @@ const CONST = {
     FILE : ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
 }
 
-export default CONST;
+// export default constant;
