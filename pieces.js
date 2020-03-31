@@ -377,7 +377,7 @@ function no_piece(props){
 }
 
 function piece_svg(i, size){
-  console.debug("i : ", i, ",  size : ", size)
+  // console.debug("i : ", i, ",  size : ", size)
   return __PIECE_FN_SVG[i]({'size' : size})
 }
 
