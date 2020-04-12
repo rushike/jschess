@@ -1,4 +1,3 @@
-
 class State{
     constructor(board){
         this.board = board ? board : null; 
@@ -54,3 +53,5 @@ class State{
         return (this.sq_n.r << 4) | this.sq_n.f;
     }
 }
+
+const games = []

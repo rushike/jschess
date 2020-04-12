@@ -1389,4 +1389,3 @@ const E = {
                     sq_color, intersect, minus, square_name
                 }
 
-//  git diff HEAD:F:\rushikesh\project\chess-board\engine (2).js F:\rushikesh\project\chess-board\engine (2).js

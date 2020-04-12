@@ -1,5 +1,3 @@
-const games = []
-
 class Game {
     
     constructor(props){
