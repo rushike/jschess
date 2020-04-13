@@ -84,7 +84,7 @@ class UiSquare extends Component{
         ctx.font = "12px Courier"
 
         ctx.fillText(this.sq_name(), converter.vh2px(0.5), this.props.height - converter.vh2px(0.8))
-        ctx.fillText(this.sq_name('x88'), this.props.width - converter.vh2px(3), this.props.height - converter.vh2px(0.8))
+        ctx.fillText(this.sq_name('x88'), this.props.width - converter.vh2px(4), this.props.height - converter.vh2px(0.8))
     }
 
     sq_color(){
@@ -108,8 +108,8 @@ class UiSquare extends Component{
         document.getElementById(`${this.sq_name()}-svg`).innerHTML = `${SVG.piece_svg(this.piece_id, 50)}`
     }
     render(){
-        return  `<div id = '${this.sq_name()}-square' class = ${this.sq_color()} onClick = 'Click.clicked_square(${this.sq_id.r}, ${this.sq_id.f})' style = 'width: ${config.SQ_SIZE}vh; height:${config.SQ_SIZE}vh;'>
-                    <div id = '${this.sq_name()}-svg' class= "posi" style="position:absolute;width:${config.SQ_SIZE}vh;height:${config.SQ_SIZE}vh;"> ${SVG.piece_svg(this.piece_id, 50)}</div>
+        return  `<div id = '${this.sq_name()}-square' class = ${this.sq_color()} onClick = 'Click.clicked_square(${this.sq_id.r}, ${this.sq_id.f})' style = 'width: ${config.SQ_SIZE}px; height:${config.SQ_SIZE}px; margin:-4px;'>
+                    <div id = '${this.sq_name()}-svg' class= "posi" style="position:absolute;width:${config.SQ_SIZE}px;height:${config.SQ_SIZE}px;"> ${SVG.piece_svg(this.piece_id, 50)}</div>
                     <canvas ref = "canvas" id = ${this.sq_name()} className= 'posi' width = ${this.props.width} height =${this.props.height} style="position:absolute"/>
                 </div>`
         

@@ -35,6 +35,45 @@ class converter{
       }
 }
 
+class get{
+	static bodyheight(){
+		var w = window,
+          d = document,
+          e = d.documentElement,
+          g = d.getElementsByTagName('body')[0];
+          return  g.clientHeight; // || w.innerHeight || e.clientHeight ||
+	}
+
+	static bodywidth(){
+		var w = window,
+          d = document,
+          e = d.documentElement,
+          g = d.getElementsByTagName('body')[0];
+          return g.clientWidth // || w.innerWidth || e.clientWidth ||
+	}
+
+	static divheight(id){
+		var div = document.getElementById(id)
+		if(div){
+			return div.offsetHeight
+		}
+	}
+
+	static divwidth(id){
+		var div = document.getElementById(id)
+		if(div){
+			return div.offsetWidth
+		}
+	}
+}
+
+class match{
+	static iscolor(){
+		return /^#[0-9A-F]{6}$/i.test('#AABBCC')
+	}
+}
+
+
 
 class query{
 	static baseclass(cls){

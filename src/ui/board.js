@@ -5,10 +5,11 @@ class UiBoard extends Component{
         this.eboard = new E.Board(); //ab
         this.state = {engine : this.eboard, statex : this.statex}
         this.statex = new State(this)
-        this.ui_board = this.init_ui_board()
         this.clicked_board = this.clicked_board.bind(this);
         this.check_if_cntrl_clicked = this.check_if_cntrl_clicked.bind(this);
         objects.add(this)
+        config.set_sq_size({id : this.divid})
+        this.ui_board = this.init_ui_board()
     }
 
     init_ui_board(){
@@ -24,8 +25,8 @@ class UiBoard extends Component{
                             f : i
                         },
                         statex : this.statex,
-                        width : converter.vh2px(config.SQ_SIZE), // in pixels
-                        height : converter.vh2px(config.SQ_SIZE), // in pixels
+                        width : config.SQ_SIZE, // in pixels
+                        height : config.SQ_SIZE, // in pixels
                         color : null,
                         divid : this.divid
                     }
@@ -73,11 +74,11 @@ class UiBoard extends Component{
         for(var i = 0; i < 8; i++){
             row.push(
                 // <Square sq_id  = {{r : j, f : i}} statex = {this.statex} width = '80' height = '80' color = 'null'/>
-                `<div style = "display:inline-block">
+                `<div style = "display:inline-block;">
                     ${this.ui_board[i][j].render()}
                 </div>` 
                 )
-        }return row
+        }return row.join("")
     }
     draw_board(){
         let board = []
@@ -87,7 +88,7 @@ class UiBoard extends Component{
                     ${this.draw_row(i)}
                 </div>`
             )
-        }return board
+        }return board.join("")
     }
     uistring(){
         var div_board  = this.draw_board()

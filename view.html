@@ -1,35 +1,41 @@
 <!DOCTYPE html>
 <html>
   <head>
-
+	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
 	<link rel="stylesheet" href="css/style.css">
 
     <script src="https://code.jquery.com/jquery-3.4.1.js"></script>
     
-    <!-- <script src="pieces.js"></script>
-    <script src="constant.js"></script>
-    <script src="config.js"></script>
-    <script src="utils.js"></script>
-    <script src="objects.js"></script>
-    <script src="state.js"></script>
-    <script src="click.js"></script>
-    <script src="engine.js"></script>
-    <script src="component.js"></script>
-    <script src="square.js"></script>
-    <script src="board.js"></script>
-    <script src="game.js"></script> -->
+    <script src="./src/ui/pieces.js"></script>
+    <script src="./src/pre/constant.js"></script>
+    <script src="./src/pre/config.js"></script>
+    <script src="./src/pre/utils.js"></script>
+    <script src="./src/pre/objects.js"></script>
+    <script src="./src/pre/state.js"></script>
+    <script src="./src/game/click.js"></script>
+    <script src="./src/engine/engine.js"></script>
+    <script src="./src/ui/component.js"></script>
+    <script src="./src/ui/square.js"></script>
+    <script src="./src/ui/board.js"></script>
+    <script src="./src/game/game.js"></script>
 
-    <script src="./dist/jschess.min.js"></script>
+    <!-- <script src="./dist/jschess.min.js"></script> -->
     
   </head>
   <body>
-    <div id = "test" style="width: 60rem;height: 60rem;">
-
-    </div>
-    <script>
-		$(document).ready(()=>{
-      var game = new Game(props = {id : "test"})
-		});
-    </script>
+    <div class="container mt-4">
+      <div class="h1" style="background-color: #f8ecec;color: #504c8d;font-weight: 800;"> ChessBoard<span class="h3 ml-3 pd-3" style="font-weight: 400;">Lets play now!</span></div>
+      <hr>
+      <div class="row">
+        <div id = "test" style="width: 40rem;height: 40rem;" class="col-md-12 pl-5">
+  
+        </div>
+      </div>
+      <script>
+        $(document).ready(()=>{
+        var game = new Game(props = {id : "test"})
+        });
+      </script>
+      </div>
   </body>
 </html>
